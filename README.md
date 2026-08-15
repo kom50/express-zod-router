@@ -69,6 +69,23 @@ Benefits:
 npm install express-zod-router express zod @asteasolutions/zod-to-openapi swagger-ui-express
 ```
 
+## Testing
+
+Run the test suite with Vitest:
+
+```bash
+npm test
+npm run test:watch
+```
+
+For a quick compile check without the full test run:
+
+```bash
+npm run build
+```
+
+---
+
 ## Quick start
 
 ```ts

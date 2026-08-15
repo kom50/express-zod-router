@@ -332,7 +332,7 @@ function chainMiddleware(middlewares: Middleware[], finalHandler: RequestHandler
     try {
       await run(0);
     } catch (error) {
-      next(error);
+      handleRouteError(error, res, next);
     }
   };
 }
@@ -442,6 +442,21 @@ function buildOpenApiResponses({
   };
 }
 
+function mergeOpenApiDocument(base: Record<string, unknown>, overrides: Record<string, unknown>): Record<string, unknown> {
+  const merged: Record<string, unknown> = { ...base, ...overrides };
+
+  if (base.components || overrides.components) {
+    const mergedComponents = {
+      ...(typeof base.components === 'object' && base.components ? (base.components as Record<string, unknown>) : {}),
+      ...(typeof overrides.components === 'object' && overrides.components ? (overrides.components as Record<string, unknown>) : {}),
+    };
+
+    merged.components = mergedComponents;
+  }
+
+  return merged;
+}
+
 // Swagger
 function mountDocs(app: Express, options: ApiDocsOptions, registry: OpenAPIRegistry): void {
   const { path = '/api-docs', jsonPath = '/api-docs.json', info = {}, servers = [{ url: '/' }], openapi = {}, swagger = {} } = options;
@@ -456,19 +471,20 @@ function mountDocs(app: Express, options: ApiDocsOptions, registry: OpenAPIRegis
       ...info,
     },
     servers: servers as Parameters<typeof generator.generateDocument>[0]['servers'],
-    ...openapi,
   });
+
+  const finalDocument = mergeOpenApiDocument(document as unknown as Record<string, unknown>, openapi as Record<string, unknown>);
 
   // OpenAPI JSON endpoint.
   app.get(jsonPath, (_req, res) => {
-    res.json(document);
+    res.json(finalDocument);
   });
 
   // Swagger UI.
   app.use(
     path,
     swaggerUi.serve,
-    swaggerUi.setup(document, {
+    swaggerUi.setup(finalDocument, {
       explorer: swagger.explorer,
       customCss: swagger.customCss,
       customSiteTitle: swagger.customSiteTitle,
