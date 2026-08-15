@@ -1,10 +1,38 @@
 {
   "name": "express-zod-router",
   "version": "1.0.0",
+  "description": "FastAPI-style routing layer for Express using Zod schemas for validation, types, and OpenAPI generation.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kom50/express-zod-router.git"
+  },
+  "homepage": "https://github.com/kom50/express-zod-router#readme",
+  "bugs": {
+    "url": "https://github.com/kom50/express-zod-router/issues"
+  },
+  "keywords": [
+    "express",
+    "zod",
+    "openapi",
+    "swagger",
+    "router",
+    "validation",
+    "typescript"
+  ],
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "tsc"
+    "build": "tsc",
+    "test": "npm run build",
+    "lint": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=18"
   },
   "peerDependencies": {
     "express": "^4.18.0 || ^5.0.0",

@@ -2,7 +2,7 @@ import type { Express, Request, Response, NextFunction, RequestHandler } from 'e
 import swaggerUi from 'swagger-ui-express';
 import { OpenAPIRegistry, OpenApiGeneratorV3 } from '@asteasolutions/zod-to-openapi';
 import { ErrorSchema, ApiError } from './errors';
-import type { ApiRouter, ApiRouteModule, Method, RouteConfig, ResponseConfig, Middleware, CreateRouterOptions, OpenApiSecurity } from './types';
+import type { ApiRouter, ApiRouteModule, Method, RouteConfig, ResponseConfig, Middleware, CreateRouterOptions, OpenApiSecurity, TypedRequest } from './types';
 import type { ApiDocsOptions } from './docs';
 import type { ZodType } from 'zod';
 import { convertExpressPath, joinPaths, normalizePrefix } from './helpers';
@@ -77,7 +77,7 @@ export function createApiRouter(options: CreateApiRouterOptions = {}): ApiRouter
         ...(query && {
           query,
         }),
-      } as any,
+      } as NonNullable<Parameters<typeof registry.registerPath>[0]['request']>,
 
       responses: {
         ...buildOpenApiResponses({
@@ -101,7 +101,7 @@ export function createApiRouter(options: CreateApiRouterOptions = {}): ApiRouter
     const coreHandler: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
       try {
         if (body) req.body = body.parse(req.body);
-        if (params) req.params = params.parse(req.params) as any;
+        if (params) req.params = params.parse(req.params) as typeof req.params;
         let handlerReq = req;
 
         if (query) {
@@ -114,7 +114,8 @@ export function createApiRouter(options: CreateApiRouterOptions = {}): ApiRouter
           });
         }
 
-        const result = await handler(handlerReq as any, res);
+        const typedReq = handlerReq as TypedRequest<B, P, Q>;
+        const result = await handler(typedReq, res);
 
         if (res.headersSent || res.writableEnded) {
           return;
@@ -180,7 +181,23 @@ export function createApiRouter(options: CreateApiRouterOptions = {}): ApiRouter
     const routerMiddleware: Middleware[] = [...initialMiddleware];
     const routerSecurity: OpenApiSecurity | undefined = initialSecurity;
 
-    const routerFunction = <
+    type ScopedRouterImpl = {
+      <
+        B extends ZodType | undefined = undefined,
+        P extends ZodType | undefined = undefined,
+        Q extends ZodType | undefined = undefined,
+        R extends ZodType | undefined = undefined,
+        Rs extends Record<number, ResponseConfig> | undefined = undefined,
+      >(
+        config: Omit<RouteConfig<B, P, Q, R, Rs>, 'path' | 'tags' | 'security'> & {
+          path?: string;
+          security?: OpenApiSecurity;
+        },
+      ): ApiRouter;
+      use: (middleware: Middleware) => ScopedRouterImpl;
+    };
+
+    const routerFunction: ScopedRouterImpl = (<
       B extends ZodType | undefined = undefined,
       P extends ZodType | undefined = undefined,
       Q extends ZodType | undefined = undefined,
@@ -191,7 +208,7 @@ export function createApiRouter(options: CreateApiRouterOptions = {}): ApiRouter
         path?: string;
         security?: OpenApiSecurity;
       },
-    ): ApiRouter => {
+    ) => {
       const routePath = joinPaths(normalizedPrefix, config.path ?? '');
       const routeMiddleware = config.middleware ?? [];
       const routeSecurity = config.security ?? routerSecurity;
@@ -203,14 +220,14 @@ export function createApiRouter(options: CreateApiRouterOptions = {}): ApiRouter
         path: routePath,
         tags,
       });
-    };
+    }) as ScopedRouterImpl;
 
-    (routerFunction as any).use = function (middleware: Middleware) {
+    routerFunction.use = function (middleware: Middleware) {
       routerMiddleware.push(middleware);
-      return this;
+      return routerFunction;
     };
 
-    return routerFunction as any;
+    return routerFunction;
   }
 
   function registerRoutes(modules: ApiRouteModule[]): ApiRouter {
@@ -287,7 +304,7 @@ function chainMiddleware(middlewares: Middleware[], finalHandler: RequestHandler
         };
 
         try {
-          const result = middleware(req, res, (err?: any) => finish(err));
+          const result = middleware(req, res, (err?: unknown) => finish(err));
           const maybePromise = result as Promise<unknown> | undefined;
           if (maybePromise && typeof maybePromise.then === 'function') {
             maybePromise
@@ -337,12 +354,14 @@ function handleRouteError(error: unknown, res: Response, next: NextFunction): vo
       issues: unknown;
     };
 
-    res.status(400).json({
-      error: 'Validation failed',
-      details: zodError.issues,
-    });
+    if (Array.isArray(zodError.issues)) {
+      res.status(400).json({
+        error: 'Validation failed',
+        details: zodError.issues,
+      });
 
-    return;
+      return;
+    }
   }
 
   // Our ApiError.
@@ -436,7 +455,7 @@ function mountDocs(app: Express, options: ApiDocsOptions, registry: OpenAPIRegis
       version: info.version ?? '1.0.0',
       ...info,
     },
-    servers: servers as any[],
+    servers: servers as Parameters<typeof generator.generateDocument>[0]['servers'],
     ...openapi,
   });
 

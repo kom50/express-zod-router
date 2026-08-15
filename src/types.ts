@@ -94,7 +94,7 @@ export interface RouteConfig<
     ? InferResponses<Rs> | Promise<InferResponses<Rs>>
     : R extends ZodType
       ? z.infer<R> | Promise<z.infer<R>>
-      : any;
+      : unknown;
 }
 
 /**

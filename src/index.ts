@@ -21,4 +21,5 @@ export type {
 } from './types';
 
 export type { ApiDocsOptions, ApiDocsInfo, ApiDocsServer } from './docs';
+export type { CreateApiRouterOptions } from './router';
 export { z };
