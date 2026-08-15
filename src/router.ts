@@ -1,11 +1,13 @@
 import type { Express, Request, Response, NextFunction, RequestHandler } from 'express';
-import swaggerUi from 'swagger-ui-express';
-import { OpenAPIRegistry, OpenApiGeneratorV3 } from '@asteasolutions/zod-to-openapi';
-import { ErrorSchema, ApiError } from './errors';
-import type { ApiRouter, ApiRouteModule, Method, RouteConfig, ResponseConfig, Middleware, CreateRouterOptions, OpenApiSecurity, TypedRequest } from './types';
-import type { ApiDocsOptions } from './docs';
+import { OpenAPIRegistry } from '@asteasolutions/zod-to-openapi';
 import type { ZodType } from 'zod';
+
+import { handleRouteError } from './errors';
+import type { ApiDocsOptions } from './docs';
 import { convertExpressPath, joinPaths, normalizePrefix } from './helpers';
+import { chainMiddleware } from './middleware';
+import { buildOpenApiResponses, defaultValidationErrorResponse, mountDocs } from './openapi';
+import type { ApiRouteModule, ApiRouter, CreateRouterOptions, Middleware, OpenApiSecurity, ResponseConfig, RouteConfig, TypedRequest } from './types';
 
 export interface CreateApiRouterOptions {
   prefix?: string;
@@ -49,36 +51,21 @@ export function createApiRouter(options: CreateApiRouterOptions = {}): ApiRouter
     registry.registerPath({
       method,
       path: convertExpressPath(fullPath),
-      ...(summary && {
-        summary,
-      }),
-      ...(description && {
-        description,
-      }),
-      ...(tags && {
-        tags,
-      }),
-      ...(security && {
-        security,
-      }),
+      ...(summary && { summary }),
+      ...(description && { description }),
+      ...(tags && { tags }),
+      ...(security && { security }),
       request: {
         ...(body && {
           body: {
             content: {
-              'application/json': {
-                schema: body,
-              },
+              'application/json': { schema: body },
             },
           },
         }),
-        ...(params && {
-          params,
-        }),
-        ...(query && {
-          query,
-        }),
+        ...(params && { params }),
+        ...(query && { query }),
       } as NonNullable<Parameters<typeof registry.registerPath>[0]['request']>,
-
       responses: {
         ...buildOpenApiResponses({
           response,
@@ -86,15 +73,7 @@ export function createApiRouter(options: CreateApiRouterOptions = {}): ApiRouter
           status,
           responseDescription,
         }),
-
-        400: {
-          description: 'Validation error',
-          content: {
-            'application/json': {
-              schema: ErrorSchema,
-            },
-          },
-        },
+        400: defaultValidationErrorResponse,
       },
     });
 
@@ -102,8 +81,8 @@ export function createApiRouter(options: CreateApiRouterOptions = {}): ApiRouter
       try {
         if (body) req.body = body.parse(req.body);
         if (params) req.params = params.parse(req.params) as typeof req.params;
-        let handlerReq = req;
 
+        let handlerReq = req;
         if (query) {
           handlerReq = Object.create(req);
           Object.defineProperty(handlerReq, 'query', {
@@ -197,14 +176,8 @@ export function createApiRouter(options: CreateApiRouterOptions = {}): ApiRouter
       use: (middleware: Middleware) => ScopedRouterImpl;
     };
 
-    const routerFunction: ScopedRouterImpl = (<
-      B extends ZodType | undefined = undefined,
-      P extends ZodType | undefined = undefined,
-      Q extends ZodType | undefined = undefined,
-      R extends ZodType | undefined = undefined,
-      Rs extends Record<number, ResponseConfig> | undefined = undefined,
-    >(
-      config: Omit<RouteConfig<B, P, Q, R, Rs>, 'path' | 'tags' | 'security'> & {
+    const routerFunction: ScopedRouterImpl = ((
+      config: Omit<RouteConfig<any, any, any, any, any>, 'path' | 'tags' | 'security'> & {
         path?: string;
         security?: OpenApiSecurity;
       },
@@ -270,226 +243,8 @@ export function createApiRouter(options: CreateApiRouterOptions = {}): ApiRouter
   return api;
 }
 
-function chainMiddleware(middlewares: Middleware[], finalHandler: RequestHandler): RequestHandler {
-  if (middlewares.length === 0) {
-    return finalHandler;
-  }
-
-  return async (req: Request, res: Response, next: NextFunction) => {
-    const run = async (index: number): Promise<void> => {
-      if (index >= middlewares.length) {
-        if (res.headersSent || res.writableEnded) {
-          return;
-        }
-        await finalHandler(req, res, next);
-        return;
-      }
-
-      const middleware = middlewares[index];
-      if (!middleware) {
-        return run(index + 1);
-      }
-
-      await new Promise<void>((resolve, reject) => {
-        let settled = false;
-
-        const finish = (err?: unknown) => {
-          if (settled) return;
-          settled = true;
-          if (err) {
-            reject(err);
-          } else {
-            resolve();
-          }
-        };
-
-        try {
-          const result = middleware(req, res, (err?: unknown) => finish(err));
-          const maybePromise = result as Promise<unknown> | undefined;
-          if (maybePromise && typeof maybePromise.then === 'function') {
-            maybePromise
-              .then(() => {
-                if (res.headersSent || res.writableEnded) {
-                  finish();
-                  return;
-                }
-                finish();
-              })
-              .catch(finish);
-          }
-        } catch (error) {
-          finish(error);
-        }
-      });
-
-      if (res.headersSent || res.writableEnded) {
-        return;
-      }
-
-      return run(index + 1);
-    };
-
-    try {
-      await run(0);
-    } catch (error) {
-      handleRouteError(error, res, next);
-    }
-  };
-}
-
-// Types
 interface RegisteredRoute {
-  method: Method;
+  method: 'get' | 'post' | 'put' | 'patch' | 'delete';
   path: string;
   handler: RequestHandler;
-}
-
-// Error Handler
-function handleRouteError(error: unknown, res: Response, next: NextFunction): void {
-  /*
-   * Zod validation error.
-   */
-  if (error && typeof error === 'object' && 'issues' in error) {
-    const zodError = error as {
-      issues: unknown;
-    };
-
-    if (Array.isArray(zodError.issues)) {
-      res.status(400).json({
-        error: 'Validation failed',
-        details: zodError.issues,
-      });
-
-      return;
-    }
-  }
-
-  // Our ApiError.
-  if (error instanceof ApiError) {
-    res.status(error.status).json({
-      error: error.message,
-      ...(error.details !== undefined && {
-        details: error.details,
-      }),
-    });
-
-    return;
-  }
-
-  // Normal Error.
-  if (error instanceof Error) {
-    res.status(500).json({
-      error: error.message,
-    });
-
-    return;
-  }
-
-  // Unknown error, Let Express handle it.
-  next(error);
-}
-
-// OpenAPI Responses
-function buildOpenApiResponses({
-  response,
-  responses,
-  status,
-  responseDescription,
-}: {
-  response?: ZodType;
-  responses?: Record<number, ResponseConfig>;
-  status: number;
-  responseDescription: string;
-}) {
-  if (responses) {
-    return Object.fromEntries(
-      Object.entries(responses).map(([statusCode, config]) => {
-        const contentType = config.contentType ?? 'application/json';
-
-        return [
-          statusCode,
-          {
-            description: config.description ?? 'Success',
-
-            ...(config.schema && {
-              content: {
-                [contentType]: {
-                  schema: config.schema,
-                },
-              },
-            }),
-          },
-        ];
-      }),
-    );
-  }
-
-  /*
-   * Single response.
-   */
-  return {
-    [status]: {
-      description: responseDescription,
-
-      ...(response && {
-        content: {
-          'application/json': {
-            schema: response,
-          },
-        },
-      }),
-    },
-  };
-}
-
-function mergeOpenApiDocument(base: Record<string, unknown>, overrides: Record<string, unknown>): Record<string, unknown> {
-  const merged: Record<string, unknown> = { ...base, ...overrides };
-
-  if (base.components || overrides.components) {
-    const mergedComponents = {
-      ...(typeof base.components === 'object' && base.components ? (base.components as Record<string, unknown>) : {}),
-      ...(typeof overrides.components === 'object' && overrides.components ? (overrides.components as Record<string, unknown>) : {}),
-    };
-
-    merged.components = mergedComponents;
-  }
-
-  return merged;
-}
-
-// Swagger
-function mountDocs(app: Express, options: ApiDocsOptions, registry: OpenAPIRegistry): void {
-  const { path = '/api-docs', jsonPath = '/api-docs.json', info = {}, servers = [{ url: '/' }], openapi = {}, swagger = {} } = options;
-
-  // Generate OpenAPI document.
-  const generator = new OpenApiGeneratorV3(registry.definitions);
-  const document = generator.generateDocument({
-    openapi: '3.0.0',
-    info: {
-      title: info.title ?? 'API Documentation',
-      version: info.version ?? '1.0.0',
-      ...info,
-    },
-    servers: servers as Parameters<typeof generator.generateDocument>[0]['servers'],
-  });
-
-  const finalDocument = mergeOpenApiDocument(document as unknown as Record<string, unknown>, openapi as Record<string, unknown>);
-
-  // OpenAPI JSON endpoint.
-  app.get(jsonPath, (_req, res) => {
-    res.json(finalDocument);
-  });
-
-  // Swagger UI.
-  app.use(
-    path,
-    swaggerUi.serve,
-    swaggerUi.setup(finalDocument, {
-      explorer: swagger.explorer,
-      customCss: swagger.customCss,
-      customSiteTitle: swagger.customSiteTitle,
-      customfavIcon: swagger.customfavIcon,
-      swaggerOptions: swagger.options,
-    }),
-  );
 }
