@@ -1,34 +1,17 @@
-import type {
-  Express,
-  Request,
-  Response,
-  NextFunction,
-  RequestHandler,
-} from "express";
-import swaggerUi from "swagger-ui-express";
-import {
-  OpenAPIRegistry,
-  OpenApiGeneratorV3,
-} from "@asteasolutions/zod-to-openapi";
-import { ErrorSchema, ApiError } from "./errors";
-import type {
-  ApiRouter,
-  ApiRouteModule,
-  Method,
-  RouteConfig,
-  ResponseConfig,
-} from "./types";
-import type { ApiDocsOptions } from "./docs";
-import type { ZodType } from "zod";
-import { convertExpressPath, joinPaths, normalizePrefix } from "./helpers";
+import type { Express, Request, Response, NextFunction, RequestHandler } from 'express';
+import swaggerUi from 'swagger-ui-express';
+import { OpenAPIRegistry, OpenApiGeneratorV3 } from '@asteasolutions/zod-to-openapi';
+import { ErrorSchema, ApiError } from './errors';
+import type { ApiRouter, ApiRouteModule, Method, RouteConfig, ResponseConfig } from './types';
+import type { ApiDocsOptions } from './docs';
+import type { ZodType } from 'zod';
+import { convertExpressPath, joinPaths, normalizePrefix } from './helpers';
 
 export interface CreateApiRouterOptions {
   prefix?: string;
 }
 
-export function createApiRouter(
-  options: CreateApiRouterOptions = {},
-): ApiRouter {
+export function createApiRouter(options: CreateApiRouterOptions = {}): ApiRouter {
   const registry = new OpenAPIRegistry();
   const registeredRoutes: RegisteredRoute[] = [];
   const prefix = normalizePrefix(options.prefix);
@@ -39,7 +22,8 @@ export function createApiRouter(
     P extends ZodType | undefined = undefined,
     Q extends ZodType | undefined = undefined,
     R extends ZodType | undefined = undefined,
-  >(config: RouteConfig<B, P, Q, R>): ApiRouter {
+    Rs extends Record<number, ResponseConfig> | undefined = undefined,
+  >(config: RouteConfig<B, P, Q, R, Rs>): ApiRouter {
     const {
       method,
       path,
@@ -52,7 +36,7 @@ export function createApiRouter(
       response,
       responses,
       status = 200,
-      responseDescription = "Success",
+      responseDescription = 'Success',
       handler,
     } = config;
 
@@ -74,7 +58,7 @@ export function createApiRouter(
         ...(body && {
           body: {
             content: {
-              "application/json": {
+              'application/json': {
                 schema: body,
               },
             },
@@ -100,10 +84,10 @@ export function createApiRouter(
          * Default validation response.
          */
         400: {
-          description: "Validation error",
+          description: 'Validation error',
 
           content: {
-            "application/json": {
+            'application/json': {
               schema: ErrorSchema,
             },
           },
@@ -116,11 +100,7 @@ export function createApiRouter(
      * Express handler
      * ----------------------------------------------------------
      */
-    const expressHandler: RequestHandler = async (
-      req: Request,
-      res: Response,
-      next: NextFunction,
-    ) => {
+    const expressHandler: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
       try {
         if (body) req.body = body.parse(req.body);
         if (params) req.params = params.parse(req.params) as any;
@@ -128,7 +108,7 @@ export function createApiRouter(
 
         if (query) {
           handlerReq = Object.create(req);
-          Object.defineProperty(handlerReq, "query", {
+          Object.defineProperty(handlerReq, 'query', {
             value: query.parse(req.query),
             writable: true,
             enumerable: true,
@@ -138,42 +118,27 @@ export function createApiRouter(
 
         const result = await handler(handlerReq as any, res);
 
-        /*
-         * User already sent response.
-         */
         if (res.headersSent) {
           return;
         }
 
-        /*
-         * For a simple response:
-         *
-         * response: TodoSchema
-         *
-         * use `status`.
-         *
-         * For multiple responses:
-         *
-         * responses: {
-         *   200: {...},
-         *   404: {...}
-         * }
-         *
-         * use the response status.
-         */
-        const responseStatus = status;
+        let responseStatus: number;
+        let rawBody: unknown;
 
-        /*
-         * Find response schema.
-         */
-        const responseSchema = response;
+        if (responses) {
+          // handler returned { status, body } via reply()
+          const r = result as { status: number; body?: unknown };
+          responseStatus = r.status;
+          rawBody = r.body;
+        } else {
+          responseStatus = status;
+          rawBody = result;
+        }
 
-        /*
-         * Validate response.
-         */
-        const payload = responseSchema ? responseSchema.parse(result) : result;
+        const responseSchema = responses ? responses[responseStatus]?.schema : response;
 
-        // 204 must not contain body.
+        const payload = responseSchema ? responseSchema.parse(rawBody) : rawBody;
+
         if (responseStatus === 204) {
           res.status(204).send();
           return;
@@ -205,12 +170,13 @@ export function createApiRouter(
       P extends ZodType | undefined = undefined,
       Q extends ZodType | undefined = undefined,
       R extends ZodType | undefined = undefined,
+      Rs extends Record<number, ResponseConfig> | undefined = undefined,
     >(
-      config: Omit<RouteConfig<B, P, Q, R>, "path" | "tags"> & {
+      config: Omit<RouteConfig<B, P, Q, R, Rs>, 'path' | 'tags'> & {
         path?: string;
       },
     ): ApiRouter => {
-      const routePath = joinPaths(normalizedPrefix, config.path ?? "");
+      const routePath = joinPaths(normalizedPrefix, config.path ?? '');
 
       return route({
         ...config,
@@ -244,10 +210,7 @@ export function createApiRouter(
   function mount(app: Express): Express {
     // Register all routes.
     for (const registeredRoute of registeredRoutes) {
-      app[registeredRoute.method](
-        registeredRoute.path,
-        registeredRoute.handler,
-      );
+      app[registeredRoute.method](registeredRoute.path, registeredRoute.handler);
     }
 
     if (docsOptions) {
@@ -277,21 +240,17 @@ interface RegisteredRoute {
 }
 
 // Error Handler
-function handleRouteError(
-  error: unknown,
-  res: Response,
-  next: NextFunction,
-): void {
+function handleRouteError(error: unknown, res: Response, next: NextFunction): void {
   /*
    * Zod validation error.
    */
-  if (error && typeof error === "object" && "issues" in error) {
+  if (error && typeof error === 'object' && 'issues' in error) {
     const zodError = error as {
       issues: unknown;
     };
 
     res.status(400).json({
-      error: "Validation failed",
+      error: 'Validation failed',
       details: zodError.issues,
     });
 
@@ -338,12 +297,12 @@ function buildOpenApiResponses({
   if (responses) {
     return Object.fromEntries(
       Object.entries(responses).map(([statusCode, config]) => {
-        const contentType = config.contentType ?? "application/json";
+        const contentType = config.contentType ?? 'application/json';
 
         return [
           statusCode,
           {
-            description: config.description ?? "Success",
+            description: config.description ?? 'Success',
 
             ...(config.schema && {
               content: {
@@ -367,7 +326,7 @@ function buildOpenApiResponses({
 
       ...(response && {
         content: {
-          "application/json": {
+          'application/json': {
             schema: response,
           },
         },
@@ -377,27 +336,16 @@ function buildOpenApiResponses({
 }
 
 // Swagger
-function mountDocs(
-  app: Express,
-  options: ApiDocsOptions,
-  registry: OpenAPIRegistry,
-): void {
-  const {
-    path = "/api-docs",
-    jsonPath = "/api-docs.json",
-    info = {},
-    servers = [{ url: "/" }],
-    openapi = {},
-    swagger = {},
-  } = options;
+function mountDocs(app: Express, options: ApiDocsOptions, registry: OpenAPIRegistry): void {
+  const { path = '/api-docs', jsonPath = '/api-docs.json', info = {}, servers = [{ url: '/' }], openapi = {}, swagger = {} } = options;
 
   // Generate OpenAPI document.
   const generator = new OpenApiGeneratorV3(registry.definitions);
   const document = generator.generateDocument({
-    openapi: "3.0.0",
+    openapi: '3.0.0',
     info: {
-      title: info.title ?? "API Documentation",
-      version: info.version ?? "1.0.0",
+      title: info.title ?? 'API Documentation',
+      version: info.version ?? '1.0.0',
       ...info,
     },
     servers: servers as any[],

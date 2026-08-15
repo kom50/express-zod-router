@@ -1,4 +1,4 @@
-import type { SwaggerUiOptions } from "swagger-ui-express";
+import type { SwaggerUiOptions } from 'swagger-ui-express';
 
 export interface ApiDocsInfo {
   title?: string;

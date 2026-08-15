@@ -19,11 +19,26 @@ export interface ResponseConfig {
   contentType?: string;
 }
 
+/**
+ * Builds a discriminated union from a `responses` map, e.g.
+ *
+ * { 200: { schema: UserSchema }, 404: { description: "..." } }
+ *   -> { status: 200; body: User } | { status: 404; body?: undefined }
+ */
+export type InferResponses<Rs extends Record<number, ResponseConfig>> = {
+  [K in keyof Rs]: K extends number
+    ? Rs[K] extends { schema: infer S extends ZodType }
+      ? { status: K; body: z.infer<S> }
+      : { status: K; body?: undefined }
+    : never;
+}[keyof Rs];
+
 export interface RouteConfig<
   B extends ZodType | undefined = undefined,
   P extends ZodType | undefined = undefined,
   Q extends ZodType | undefined = undefined,
   R extends ZodType | undefined = undefined,
+  Rs extends Record<number, ResponseConfig> | undefined = undefined,
 > {
   method: Method;
   path: string;
@@ -42,9 +57,11 @@ export interface RouteConfig<
   response?: R;
 
   /**
-   * Multiple OpenAPI responses.
+   * Multiple OpenAPI responses:
+   *
+   * responses: { 200: { schema: TodoSchema }, 404: { description: "..." } }
    */
-  responses?: Record<number, ResponseConfig>;
+  responses?: Rs;
 
   /**
    * Status used when `response` is used.
@@ -55,7 +72,15 @@ export interface RouteConfig<
    * Description used when `response` is used.
    */
   responseDescription?: string;
-  handler: (req: TypedRequest<B, P, Q>, res: Response) => any | Promise<any>;
+
+  handler: (
+    req: TypedRequest<B, P, Q>,
+    res: Response,
+  ) => Rs extends Record<number, ResponseConfig>
+    ? InferResponses<Rs> | Promise<InferResponses<Rs>>
+    : R extends ZodType
+      ? z.infer<R> | Promise<z.infer<R>>
+      : any;
 }
 
 export interface ApiRouter {
@@ -64,8 +89,9 @@ export interface ApiRouter {
     P extends ZodType | undefined = undefined,
     Q extends ZodType | undefined = undefined,
     R extends ZodType | undefined = undefined,
+    Rs extends Record<number, ResponseConfig> | undefined = undefined,
   >(
-    config: RouteConfig<B, P, Q, R>,
+    config: RouteConfig<B, P, Q, R, Rs>,
   ) => ApiRouter;
 
   createRouter: (
@@ -76,8 +102,9 @@ export interface ApiRouter {
     P extends ZodType | undefined = undefined,
     Q extends ZodType | undefined = undefined,
     R extends ZodType | undefined = undefined,
+    Rs extends Record<number, ResponseConfig> | undefined = undefined,
   >(
-    config: Omit<RouteConfig<B, P, Q, R>, "path" | "tags"> & {
+    config: Omit<RouteConfig<B, P, Q, R, Rs>, "path" | "tags"> & {
       path?: string;
     },
   ) => ApiRouter;
