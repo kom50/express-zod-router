@@ -1,17 +1,25 @@
-import type { Request, Response } from "express";
-import type { ZodType, z } from "zod";
+import type { Request, Response, RequestHandler, NextFunction } from 'express';
+import type { ZodType, z } from 'zod';
 
-export type Method = "get" | "post" | "put" | "patch" | "delete";
+export type Method = 'get' | 'post' | 'put' | 'patch' | 'delete';
+
+/**
+ * Middleware type compatible with Express middleware.
+ * Can be a standard Express RequestHandler or async function.
+ */
+export type Middleware = RequestHandler;
 
 export type TypedRequest<
   B extends ZodType | undefined = undefined,
   P extends ZodType | undefined = undefined,
   Q extends ZodType | undefined = undefined,
-> = Omit<Request, "body" | "params" | "query"> & {
-  body: B extends ZodType ? z.infer<B> : Request["body"];
-  params: P extends ZodType ? z.infer<P> : Request["params"];
-  query: Q extends ZodType ? z.infer<Q> : Request["query"];
+> = Omit<Request, 'body' | 'params' | 'query'> & {
+  body: B extends ZodType ? z.infer<B> : Request['body'];
+  params: P extends ZodType ? z.infer<P> : Request['params'];
+  query: Q extends ZodType ? z.infer<Q> : Request['query'];
 };
+
+export type OpenApiSecurity = Record<string, string[]>[];
 
 export interface ResponseConfig {
   schema?: ZodType;
@@ -48,6 +56,12 @@ export interface RouteConfig<
   body?: B;
   params?: P;
   query?: Q;
+  security?: OpenApiSecurity;
+
+  /**
+   * Route-level middleware. Executes after global middleware, before validation.
+   */
+  middleware?: Middleware[];
 
   /**
    * Simple response:
@@ -83,6 +97,30 @@ export interface RouteConfig<
       : any;
 }
 
+/**
+ * Options for creating a scoped router
+ */
+export interface CreateRouterOptions {
+  path: string;
+  tags?: string[];
+  middleware?: Middleware[];
+  security?: OpenApiSecurity;
+}
+
+export type ScopedRouter = {
+  <
+    B extends ZodType | undefined = undefined,
+    P extends ZodType | undefined = undefined,
+    Q extends ZodType | undefined = undefined,
+    R extends ZodType | undefined = undefined,
+    Rs extends Record<number, ResponseConfig> | undefined = undefined,
+  >(
+    config: RouteConfig<B, P, Q, R, Rs>,
+  ): ApiRouter;
+
+  use: (middleware: Middleware) => ScopedRouter;
+};
+
 export interface ApiRouter {
   route: <
     B extends ZodType | undefined = undefined,
@@ -94,25 +132,13 @@ export interface ApiRouter {
     config: RouteConfig<B, P, Q, R, Rs>,
   ) => ApiRouter;
 
-  createRouter: (
-    prefix: string,
-    tags?: string[],
-  ) => <
-    B extends ZodType | undefined = undefined,
-    P extends ZodType | undefined = undefined,
-    Q extends ZodType | undefined = undefined,
-    R extends ZodType | undefined = undefined,
-    Rs extends Record<number, ResponseConfig> | undefined = undefined,
-  >(
-    config: Omit<RouteConfig<B, P, Q, R, Rs>, "path" | "tags"> & {
-      path?: string;
-    },
-  ) => ApiRouter;
+  createRouter: ((prefix: string, tags?: string[]) => ScopedRouter) & ((options: CreateRouterOptions) => ScopedRouter);
 
   routes: (modules: ApiRouteModule[]) => ApiRouter;
-  mount: (app: import("express").Express) => import("express").Express;
-  docs: (options?: import("./docs").ApiDocsOptions) => ApiRouter;
-  registry: import("@asteasolutions/zod-to-openapi").OpenAPIRegistry;
+  mount: (app: import('express').Express) => import('express').Express;
+  docs: (options?: import('./docs').ApiDocsOptions) => ApiRouter;
+  use: (middleware: Middleware) => ApiRouter;
+  registry: import('@asteasolutions/zod-to-openapi').OpenAPIRegistry;
 }
 
 export type ApiRouteModule = (api: ApiRouter) => void;

@@ -13,33 +13,33 @@ npm install express-zod-router express zod @asteasolutions/zod-to-openapi swagge
 ## Quick start
 
 ```ts
-import express from "express";
-import { createApiRouter } from "express-zod-router";
-import { todoRoutes } from "./routes/todo.routes";
+import express from 'express';
+import { createApiRouter } from 'express-zod-router';
+import { todoRoutes } from './routes/todo.routes';
 
 const app = express();
 app.use(express.json());
 
-const api = createApiRouter({ prefix: "/api" });
+const api = createApiRouter({ prefix: '/api' });
 
 api.routes([todoRoutes]);
 
 api.docs({
-  info: { title: "My API", version: "1.0.0" },
-  servers: [{ url: "http://localhost:3000" }],
+  info: { title: 'My API', version: '1.0.0' },
+  servers: [{ url: 'http://localhost:3000' }],
 });
 
 api.mount(app);
 
 app.listen(3000, () => {
-  console.log("API:  http://localhost:3000/api");
-  console.log("Docs: http://localhost:3000/api-docs");
+  console.log('API:  http://localhost:3000/api');
+  console.log('Docs: http://localhost:3000/api-docs');
 });
 ```
 
 ```ts
 // routes/todo.routes.ts
-import { z, ApiError, type ApiRouter } from "express-zod-router";
+import { z, ApiError, type ApiRouter } from 'express-zod-router';
 
 const TodoSchema = z
   .object({
@@ -47,22 +47,22 @@ const TodoSchema = z
     title: z.string().min(1),
     completed: z.boolean(),
   })
-  .openapi("Todo");
+  .openapi('Todo');
 
 export function todoRoutes(api: ApiRouter) {
-  const todo = api.createRouter("/todos", ["Todos"]);
+  const todo = api.createRouter('/todos', ['Todos']);
 
   todo({
-    method: "get",
-    path: "/:id",
+    method: 'get',
+    path: '/:id',
     params: z.object({ id: z.string() }),
     responses: {
-      200: { schema: TodoSchema, description: "Todo found" },
-      404: { description: "Todo not found" },
+      200: { schema: TodoSchema, description: 'Todo found' },
+      404: { description: 'Todo not found' },
     },
     handler: (req) => {
       const found = todos.find((t) => t.id === req.params.id);
-      if (!found) throw new ApiError(404, "Todo not found");
+      if (!found) throw new ApiError(404, 'Todo not found');
       return found;
     },
   });
@@ -88,7 +88,7 @@ handler receives — one definition, three jobs.
 
 ```ts
 handler: (req) => {
-  return { id: "1", title: "Buy milk", completed: false };
+  return { id: '1', title: 'Buy milk', completed: false };
 };
 ```
 
@@ -105,7 +105,7 @@ yourself when you need full control (e.g. `204 No Content`, redirects, streaming
 Creates a router instance with its own OpenAPI registry.
 
 ```ts
-const api = createApiRouter({ prefix: "/api" }); // all routes mounted under /api
+const api = createApiRouter({ prefix: '/api' }); // all routes mounted under /api
 ```
 
 | Option   | Type                | Description                                               |
@@ -122,10 +122,10 @@ Registers a single endpoint directly on the router (no sub-prefix).
 
 ```ts
 api.route({
-  method: "get",
-  path: "/health",
+  method: 'get',
+  path: '/health',
   response: z.object({ status: z.string() }),
-  handler: () => ({ status: "ok" }),
+  handler: () => ({ status: 'ok' }),
 });
 ```
 
@@ -157,11 +157,11 @@ Returns a scoped route-registration function with a path prefix and default tags
 baked in — equivalent to FastAPI's `APIRouter(prefix=..., tags=[...])`.
 
 ```ts
-const todo = api.createRouter("/todos", ["Todos"]);
+const todo = api.createRouter('/todos', ['Todos']);
 
 todo({
-  method: "get",
-  path: "/:id", // resolves to {api prefix}/todos/:id
+  method: 'get',
+  path: '/:id', // resolves to {api prefix}/todos/:id
   handler: (req) => ({ id: req.params.id }),
 });
 ```
@@ -189,24 +189,24 @@ for docs to be served.
 
 ```ts
 api.docs({
-  path: "/docs", // default: "/api-docs"
-  jsonPath: "/docs.json", // default: "/api-docs.json"
+  path: '/docs', // default: "/api-docs"
+  jsonPath: '/docs.json', // default: "/api-docs.json"
   info: {
-    title: "My API",
-    version: "1.0.0",
-    description: "My Express API",
+    title: 'My API',
+    version: '1.0.0',
+    description: 'My Express API',
   },
-  servers: [{ url: "http://localhost:3000", description: "Local development" }],
+  servers: [{ url: 'http://localhost:3000', description: 'Local development' }],
   swagger: {
     explorer: true,
-    customSiteTitle: "My API Documentation",
+    customSiteTitle: 'My API Documentation',
     options: {
       swaggerOptions: {
         persistAuthorization: true,
         displayRequestDuration: true,
         filter: true,
         deepLinking: true,
-        docExpansion: "list",
+        docExpansion: 'list',
         displayOperationId: true,
         tryItOutEnabled: true,
       },
@@ -228,8 +228,8 @@ If `docs()` is never called, no documentation routes are mounted — useful for
 disabling docs in production:
 
 ```ts
-if (process.env.NODE_ENV !== "production") {
-  api.docs({ info: { title: "My API", version: "1.0.0" } });
+if (process.env.NODE_ENV !== 'production') {
+  api.docs({ info: { title: 'My API', version: '1.0.0' } });
 }
 ```
 
@@ -261,17 +261,17 @@ For endpoints that can return different shapes depending on outcome — the Fast
 
 ```ts
 todo({
-  method: "patch",
-  path: "/:id",
+  method: 'patch',
+  path: '/:id',
   params: TodoIdParams,
   body: CreateTodoSchema.partial(),
   responses: {
-    200: { schema: TodoSchema, description: "Todo updated successfully" },
-    404: { description: "Todo not found" },
+    200: { schema: TodoSchema, description: 'Todo updated successfully' },
+    404: { description: 'Todo not found' },
   },
   handler: (req) => {
     const found = todos.find((t) => t.id === req.params.id);
-    if (!found) throw new ApiError(404, "Todo not found");
+    if (!found) throw new ApiError(404, 'Todo not found');
     Object.assign(found, req.body);
     return found;
   },
@@ -298,16 +298,16 @@ Routes that return no body are handled explicitly — return nothing and call
 
 ```ts
 todo({
-  method: "delete",
-  path: "/:id",
+  method: 'delete',
+  path: '/:id',
   params: TodoIdParams,
   responses: {
-    204: { description: "Todo deleted successfully" },
-    404: { description: "Todo not found" },
+    204: { description: 'Todo deleted successfully' },
+    404: { description: 'Todo not found' },
   },
   handler: (req, res) => {
     const index = todos.findIndex((t) => t.id === req.params.id);
-    if (index === -1) throw new ApiError(404, "Todo not found");
+    if (index === -1) throw new ApiError(404, 'Todo not found');
     todos.splice(index, 1);
     res.status(204).send();
   },
@@ -322,10 +322,10 @@ Throw `ApiError` inside any handler for a typed, structured error response. It's
 caught automatically — no `try/catch` needed in the handler itself.
 
 ```ts
-import { ApiError } from "express-zod-router";
+import { ApiError } from 'express-zod-router';
 
-throw new ApiError(404, "Todo not found");
-throw new ApiError(403, "Forbidden", { reason: "insufficient_role" }); // optional details
+throw new ApiError(404, 'Todo not found');
+throw new ApiError(403, 'Forbidden', { reason: 'insufficient_role' }); // optional details
 ```
 
 **How errors resolve, in order:**
@@ -363,9 +363,9 @@ type inference, for the classic route / controller / service split:
 
 ```ts
 // controllers/todo.controller.ts
-import type { TypedRequest } from "express-zod-router";
-import { CreateTodoSchema } from "../schemas/todo.schema";
-import { todoService } from "../services/todo.service";
+import type { TypedRequest } from 'express-zod-router';
+import { CreateTodoSchema } from '../schemas/todo.schema';
+import { todoService } from '../services/todo.service';
 
 export async function createTodo(req: TypedRequest<typeof CreateTodoSchema>) {
   // req.body is typed as { title: string; completed: boolean }
@@ -376,8 +376,8 @@ export async function createTodo(req: TypedRequest<typeof CreateTodoSchema>) {
 ```ts
 // routes/todo.routes.ts
 todo({
-  method: "post",
-  path: "",
+  method: 'post',
+  path: '',
   body: CreateTodoSchema,
   response: TodoSchema,
   status: 201,
@@ -421,3 +421,48 @@ npx openapi-typescript http://localhost:3000/api-docs.json -o client-types.ts
 ## License
 
 MIT
+
+---
+
+## Middleware and router groups
+
+You can register middleware globally or per router/group.
+
+```ts
+const api = createApiRouter({
+  prefix: '/api',
+  middleware: [requestId(), logger()],
+});
+
+api.use(cors());
+
+const auth = api.createRouter({
+  path: '/auth',
+  tags: ['Authentication'],
+  security: [{ BearerAuth: [] }],
+  middleware: [rateLimiter()],
+});
+
+auth({
+  method: 'post',
+  path: '/login',
+  body: LoginSchema,
+  response: LoginResponseSchema,
+  handler: (req) => ({ accessToken: 'demo-token' }),
+});
+```
+
+Middleware order is:
+
+```text
+Global middleware
+  -> router middleware
+  -> route middleware
+  -> Zod validation
+  -> handler
+  -> response validation
+```
+
+If a middleware writes the response or calls `next(error)`, the rest of the chain is skipped or the package error handler is used.
+
+---

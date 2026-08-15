@@ -2,18 +2,20 @@ import type { Express, Request, Response, NextFunction, RequestHandler } from 'e
 import swaggerUi from 'swagger-ui-express';
 import { OpenAPIRegistry, OpenApiGeneratorV3 } from '@asteasolutions/zod-to-openapi';
 import { ErrorSchema, ApiError } from './errors';
-import type { ApiRouter, ApiRouteModule, Method, RouteConfig, ResponseConfig } from './types';
+import type { ApiRouter, ApiRouteModule, Method, RouteConfig, ResponseConfig, Middleware, CreateRouterOptions, OpenApiSecurity } from './types';
 import type { ApiDocsOptions } from './docs';
 import type { ZodType } from 'zod';
 import { convertExpressPath, joinPaths, normalizePrefix } from './helpers';
 
 export interface CreateApiRouterOptions {
   prefix?: string;
+  middleware?: Middleware[];
 }
 
 export function createApiRouter(options: CreateApiRouterOptions = {}): ApiRouter {
   const registry = new OpenAPIRegistry();
   const registeredRoutes: RegisteredRoute[] = [];
+  const globalMiddleware: Middleware[] = [...(options.middleware ?? [])];
   const prefix = normalizePrefix(options.prefix);
   let docsOptions: ApiDocsOptions | undefined;
 
@@ -33,6 +35,8 @@ export function createApiRouter(options: CreateApiRouterOptions = {}): ApiRouter
       body,
       params,
       query,
+      security,
+      middleware = [],
       response,
       responses,
       status = 200,
@@ -53,6 +57,9 @@ export function createApiRouter(options: CreateApiRouterOptions = {}): ApiRouter
       }),
       ...(tags && {
         tags,
+      }),
+      ...(security && {
+        security,
       }),
       request: {
         ...(body && {
@@ -80,12 +87,8 @@ export function createApiRouter(options: CreateApiRouterOptions = {}): ApiRouter
           responseDescription,
         }),
 
-        /*
-         * Default validation response.
-         */
         400: {
           description: 'Validation error',
-
           content: {
             'application/json': {
               schema: ErrorSchema,
@@ -95,12 +98,7 @@ export function createApiRouter(options: CreateApiRouterOptions = {}): ApiRouter
       },
     });
 
-    /*
-     * ----------------------------------------------------------
-     * Express handler
-     * ----------------------------------------------------------
-     */
-    const expressHandler: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
+    const coreHandler: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
       try {
         if (body) req.body = body.parse(req.body);
         if (params) req.params = params.parse(req.params) as any;
@@ -118,7 +116,7 @@ export function createApiRouter(options: CreateApiRouterOptions = {}): ApiRouter
 
         const result = await handler(handlerReq as any, res);
 
-        if (res.headersSent) {
+        if (res.headersSent || res.writableEnded) {
           return;
         }
 
@@ -126,7 +124,6 @@ export function createApiRouter(options: CreateApiRouterOptions = {}): ApiRouter
         let rawBody: unknown;
 
         if (responses) {
-          // handler returned { status, body } via reply()
           const r = result as { status: number; body?: unknown };
           responseStatus = r.status;
           rawBody = r.body;
@@ -136,7 +133,6 @@ export function createApiRouter(options: CreateApiRouterOptions = {}): ApiRouter
         }
 
         const responseSchema = responses ? responses[responseStatus]?.schema : response;
-
         const payload = responseSchema ? responseSchema.parse(rawBody) : rawBody;
 
         if (responseStatus === 204) {
@@ -150,6 +146,9 @@ export function createApiRouter(options: CreateApiRouterOptions = {}): ApiRouter
       }
     };
 
+    const allMiddleware = [...globalMiddleware, ...middleware];
+    const expressHandler = chainMiddleware(allMiddleware, coreHandler);
+
     registeredRoutes.push({
       method,
       path: fullPath,
@@ -159,36 +158,61 @@ export function createApiRouter(options: CreateApiRouterOptions = {}): ApiRouter
     return api;
   }
 
-  /*
-   * createRouter()
-   */
-  function createRouter(routerPrefix: string, routerTags: string[] = []) {
-    const normalizedPrefix = normalizePrefix(routerPrefix);
+  function createRouter(prefixOrOptions: string | CreateRouterOptions, routerTags: string[] = []) {
+    let routerPrefix: string;
+    let tags: string[];
+    let initialMiddleware: Middleware[];
+    let initialSecurity: OpenApiSecurity | undefined;
 
-    return <
+    if (typeof prefixOrOptions === 'string') {
+      routerPrefix = prefixOrOptions;
+      tags = routerTags;
+      initialMiddleware = [];
+      initialSecurity = undefined;
+    } else {
+      routerPrefix = prefixOrOptions.path;
+      tags = prefixOrOptions.tags ?? [];
+      initialMiddleware = prefixOrOptions.middleware ?? [];
+      initialSecurity = prefixOrOptions.security;
+    }
+
+    const normalizedPrefix = normalizePrefix(routerPrefix);
+    const routerMiddleware: Middleware[] = [...initialMiddleware];
+    const routerSecurity: OpenApiSecurity | undefined = initialSecurity;
+
+    const routerFunction = <
       B extends ZodType | undefined = undefined,
       P extends ZodType | undefined = undefined,
       Q extends ZodType | undefined = undefined,
       R extends ZodType | undefined = undefined,
       Rs extends Record<number, ResponseConfig> | undefined = undefined,
     >(
-      config: Omit<RouteConfig<B, P, Q, R, Rs>, 'path' | 'tags'> & {
+      config: Omit<RouteConfig<B, P, Q, R, Rs>, 'path' | 'tags' | 'security'> & {
         path?: string;
+        security?: OpenApiSecurity;
       },
     ): ApiRouter => {
       const routePath = joinPaths(normalizedPrefix, config.path ?? '');
+      const routeMiddleware = config.middleware ?? [];
+      const routeSecurity = config.security ?? routerSecurity;
 
       return route({
         ...config,
+        middleware: [...routerMiddleware, ...routeMiddleware],
+        security: routeSecurity,
         path: routePath,
-        tags: routerTags,
+        tags,
       });
     };
+
+    (routerFunction as any).use = function (middleware: Middleware) {
+      routerMiddleware.push(middleware);
+      return this;
+    };
+
+    return routerFunction as any;
   }
 
-  /*
-   * routes()
-   */
   function registerRoutes(modules: ApiRouteModule[]): ApiRouter {
     for (const module of modules) {
       module(api);
@@ -196,19 +220,12 @@ export function createApiRouter(options: CreateApiRouterOptions = {}): ApiRouter
     return api;
   }
 
-  /*
-   * docs()
-   */
   function docs(options: ApiDocsOptions = {}): ApiRouter {
     docsOptions = options;
     return api;
   }
 
-  /*
-   * mount()
-   */
   function mount(app: Express): Express {
-    // Register all routes.
     for (const registeredRoute of registeredRoutes) {
       app[registeredRoute.method](registeredRoute.path, registeredRoute.handler);
     }
@@ -226,10 +243,81 @@ export function createApiRouter(options: CreateApiRouterOptions = {}): ApiRouter
     routes: registerRoutes,
     mount,
     docs,
+    use: (middleware) => {
+      globalMiddleware.push(middleware);
+      return api;
+    },
     registry,
   };
 
   return api;
+}
+
+function chainMiddleware(middlewares: Middleware[], finalHandler: RequestHandler): RequestHandler {
+  if (middlewares.length === 0) {
+    return finalHandler;
+  }
+
+  return async (req: Request, res: Response, next: NextFunction) => {
+    const run = async (index: number): Promise<void> => {
+      if (index >= middlewares.length) {
+        if (res.headersSent || res.writableEnded) {
+          return;
+        }
+        await finalHandler(req, res, next);
+        return;
+      }
+
+      const middleware = middlewares[index];
+      if (!middleware) {
+        return run(index + 1);
+      }
+
+      await new Promise<void>((resolve, reject) => {
+        let settled = false;
+
+        const finish = (err?: unknown) => {
+          if (settled) return;
+          settled = true;
+          if (err) {
+            reject(err);
+          } else {
+            resolve();
+          }
+        };
+
+        try {
+          const result = middleware(req, res, (err?: any) => finish(err));
+          const maybePromise = result as Promise<unknown> | undefined;
+          if (maybePromise && typeof maybePromise.then === 'function') {
+            maybePromise
+              .then(() => {
+                if (res.headersSent || res.writableEnded) {
+                  finish();
+                  return;
+                }
+                finish();
+              })
+              .catch(finish);
+          }
+        } catch (error) {
+          finish(error);
+        }
+      });
+
+      if (res.headersSent || res.writableEnded) {
+        return;
+      }
+
+      return run(index + 1);
+    };
+
+    try {
+      await run(0);
+    } catch (error) {
+      next(error);
+    }
+  };
 }
 
 // Types
