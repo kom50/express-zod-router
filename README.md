@@ -1,8 +1,67 @@
 # express-zod-router
 
-A FastAPI-style routing layer for Express, built on Zod. Declare a route once and get
-request validation, response validation, typed handlers, and auto-generated OpenAPI
-docs — all from the same schema.
+> **Declare once, validate everywhere.**
+> A FastAPI-style routing layer for Express that eliminates boilerplate by using Zod schemas as a single source of truth for validation, types, and API documentation.
+
+## The Problem
+
+Building Express APIs is verbose and error-prone:
+
+```ts
+// ❌ Traditional Express (keep all in sync manually)
+app.post(
+  '/users',
+  validateBody(UserSchema), // validation
+  validateAuth, // middleware
+  (req, res) => {
+    // handler
+    const user = req.body; // type: unknown
+    res.json({ ...user }); // hope it matches OpenAPI
+  },
+);
+
+// Separate JSDoc/OpenAPI for docs
+/**
+ * @route POST /users
+ * @param {UserSchema} body
+ */
+```
+
+Problems:
+
+- Request/response validation separate from handler
+- TypeScript types don't match runtime validation
+- OpenAPI docs require JSDoc comments or external config
+- Middleware scattered throughout the codebase
+- Adding validation + auth + docs = 3x the code
+
+## The Solution
+
+**express-zod-router** solves this in one declaration:
+
+```ts
+// ✅ express-zod-router (single source of truth)
+api.route({
+  method: 'post',
+  path: '/users',
+  body: UserSchema, // one schema
+  response: UserSchema, // for both validation
+  middleware: [authenticate], // and middleware
+  handler: (req) => {
+    // handler gets typed req
+    const user = req.body; // type: { id, name, email }
+    return user;
+  },
+});
+```
+
+Benefits:
+
+- ✅ **One declaration** → validation, types, OpenAPI docs
+- ✅ **Full TypeScript inference** → safe refactoring
+- ✅ **Auto-generated OpenAPI** → live Swagger UI
+- ✅ **Router groups & middleware** → clean organization
+- ✅ **Express compatible** → drop-in replacement
 
 ## Install
 
@@ -71,20 +130,62 @@ export function todoRoutes(api: ApiRouter) {
 
 ---
 
-## Core concepts
+## Why express-zod-router?
 
-### 1. One declaration per route
+| Aspect           | Express                    | express-zod-router | FastAPI        |
+| ---------------- | -------------------------- | ------------------ | -------------- |
+| **Schema**       | Manual JSDoc/TS interfaces | Zod schema         | Pydantic       |
+| **Validation**   | Separate middleware        | Built-in           | Built-in       |
+| **Type Safety**  | ⚠️ Manual                  | ✅ Automatic       | ✅ Automatic   |
+| **OpenAPI Docs** | External config            | Auto-generated     | Auto-generated |
+| **Middleware**   | Global only                | Global + scoped    | Built-in       |
+| **Perfect for**  | Minimal APIs               | Async full-stack   | Python async   |
 
-Every route is a single object: path, method, validation, docs, and handler together.
-No separate `app.get()` + JSDoc comment + interface to keep in sync.
+---
 
-### 2. Schema is the source of truth
+## Core Concepts
 
-`body`, `params`, `query`, and `response` are all Zod schemas. They validate at
-runtime **and** generate the OpenAPI spec **and** produce the TypeScript type your
-handler receives — one definition, three jobs.
+### 1. Single Declaration, Three Jobs
 
-### 3. Handlers return data, not responses
+Every route is one object: schema, validation, and documentation together. No separate `app.get()` + JSDoc + type interface.
+
+```ts
+const UserSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string().min(1),
+  email: z.string().email(),
+});
+
+api.route({
+  method: 'post',
+  path: '/users',
+  body: UserSchema, // ← Validates request
+  response: UserSchema, // ← Validates response + generates OpenAPI
+  handler: (req) => {
+    // ← req.body is typed as { id, name, email }
+    return req.body;
+  },
+});
+```
+
+**One schema, three results:**
+
+1. ✅ Runtime validation (Zod at request/response time)
+2. ✅ TypeScript types (inferred from schema)
+3. ✅ OpenAPI documentation (auto-generated)
+
+### 2. Zod as the Source of Truth
+
+All request/response validation uses Zod schemas. This means:
+
+- **Single source of truth** — one place to change validation rules
+- **Runtime safety** — Zod validates at runtime, not just type-check time
+- **Type inference** — TypeScript automatically types `req.body`, `req.params`, `req.query`
+- **OpenAPI generation** — schemas feed directly into Swagger docs
+
+### 3. Handlers Return Data, Not Responses
+
+Unlike Express handlers, you don't call `res.json()`. Just return the data:
 
 ```ts
 handler: (req) => {
@@ -92,27 +193,163 @@ handler: (req) => {
 };
 ```
 
-No `res.json()` needed — the wrapper validates the return value against your
-response schema and sends it. You can still call `res.send()`/`res.status()`
-yourself when you need full control (e.g. `204 No Content`, redirects, streaming).
+The framework:
+
+1. Validates the return value against your response schema
+2. Sends back `200 OK` with JSON
+3. Handles errors & validation failures automatically
+
+You can still call `res.send()`, `res.status()`, etc. when you need full control (redirects, streaming, 204 No Content).
+
+### 4. Middleware at Multiple Levels
+
+Middleware can be attached globally, to a router group, or to a single route:
+
+```ts
+// Global: runs on all routes
+const api = createApiRouter({ middleware: [requestId(), logger()] });
+
+// Router group: runs on all routes in /auth/*
+const auth = api.createRouter({
+  path: '/auth',
+  middleware: [rateLimiter()],
+});
+
+// Single route: runs only on this route
+api.route({
+  method: 'post',
+  path: '/users',
+  middleware: [authenticate, auditLog],
+  handler: (req) => ({ ... }),
+});
+```
+
+Middleware executes in order: global → router → route → validation → handler → response validation.
 
 ---
 
-## API reference
+## Features at a Glance
+
+- **Type Safety** — Full TypeScript inference from Zod schemas
+- **Request Validation** — Zod validation for body, params, query
+- **Response Validation** — Ensure responses match your schema
+- **Auto-Generated OpenAPI** — Live Swagger UI from your routes
+- **Router Groups** — Organize routes with `createRouter(prefix, tags)`
+- **Multi-Level Middleware** — Global, router-scoped, and route-level middleware
+- **Error Handling** — Unified error handler with custom `ApiError`
+- **Express Compatible** — Works with standard Express middleware
+- **Zero Breaking Changes** — Backwards compatible with Express
+- **Production Ready** — Used in production APIs
+
+---
+
+## Getting Started in 5 Minutes
+
+### 1. Define your schemas
+
+```ts
+import { z } from 'express-zod-router';
+
+export const UserSchema = z
+  .object({
+    id: z.string().uuid(),
+    name: z.string().min(1),
+    email: z.string().email(),
+  })
+  .openapi('User');
+
+export const CreateUserSchema = UserSchema.omit({ id: true });
+```
+
+### 2. Create route modules
+
+```ts
+// routes/users.routes.ts
+import { z, type ApiRouter } from 'express-zod-router';
+import { UserSchema, CreateUserSchema } from '../schemas';
+
+export function userRoutes(api: ApiRouter) {
+  const users = api.createRouter({
+    path: '/users',
+    tags: ['Users'],
+    middleware: [authenticate], // optional
+  });
+
+  users({
+    method: 'get',
+    path: '/:id',
+    params: z.object({ id: z.string().uuid() }),
+    response: UserSchema,
+    handler: (req) => {
+      return getUserById(req.params.id);
+    },
+  });
+
+  users({
+    method: 'post',
+    path: '/',
+    body: CreateUserSchema,
+    response: UserSchema,
+    handler: (req) => {
+      return createUser(req.body);
+    },
+  });
+}
+```
+
+### 3. Mount and run
+
+```ts
+// main.ts
+import express from 'express';
+import { createApiRouter } from 'express-zod-router';
+import { userRoutes } from './routes/users.routes';
+
+const app = express();
+app.use(express.json());
+
+const api = createApiRouter({
+  prefix: '/api',
+  middleware: [requestId(), logger()],
+});
+
+api.routes([userRoutes]);
+
+api.docs({
+  info: { title: 'My API', version: '1.0.0' },
+  servers: [{ url: 'http://localhost:3000' }],
+});
+
+api.mount(app);
+app.listen(3000);
+```
+
+Visit:
+
+- API: `http://localhost:3000/api`
+- Docs: `http://localhost:3000/api-docs`
+
+---
+
+## API Reference
 
 ### `createApiRouter(options?)`
 
-Creates a router instance with its own OpenAPI registry.
+Creates a router instance with its own OpenAPI registry and optional global middleware.
 
 ```ts
-const api = createApiRouter({ prefix: '/api' }); // all routes mounted under /api
+const api = createApiRouter({
+  prefix: '/api', // optional
+  middleware: [requestId(), logger()], // optional
+});
 ```
 
-| Option   | Type                | Description                                               |
-| -------- | ------------------- | --------------------------------------------------------- |
-| `prefix` | `string` (optional) | Prepended to every route path registered on this instance |
+| Option       | Type                 | Description                             |
+| ------------ | -------------------- | --------------------------------------- |
+| `prefix`     | `string` (optional)  | Prepended to every route path           |
+| `middleware` | `Middleware[]` (opt) | Global middleware applied to all routes |
 
-Returns an `ApiRouter` with: `route`, `createRouter`, `routes`, `docs`, `mount`, `registry`.
+Returns an `ApiRouter` with methods: `route()`, `createRouter()`, `routes()`, `docs()`, `mount()`, `use()`, and `registry`.
 
 ---
 
@@ -405,64 +642,6 @@ client for your frontend:
 npx openapi-typescript http://localhost:3000/api-docs.json -o client-types.ts
 ```
 
----
-
-## What this does and doesn't do
-
-- ✅ One schema drives request validation, response validation, types, and docs
-- ✅ Typed `req.body` / `req.params` / `req.query` in every handler
-- ✅ Multiple documented response shapes per route (`responses` map)
-- ✅ Errors thrown in handlers are caught and formatted automatically
-- ✅ Route modules compose cleanly across files (`api.routes([...])`)
-- ❌ No dependency-injection container (`Depends()` equivalent) — use standard
-  Express middleware, or reach for [NestJS](https://nestjs.com) if you need full DI
-- ❌ No built-in request caching/memoization
-
 ## License
 
 MIT
-
----
-
-## Middleware and router groups
-
-You can register middleware globally or per router/group.
-
-```ts
-const api = createApiRouter({
-  prefix: '/api',
-  middleware: [requestId(), logger()],
-});
-
-api.use(cors());
-
-const auth = api.createRouter({
-  path: '/auth',
-  tags: ['Authentication'],
-  security: [{ BearerAuth: [] }],
-  middleware: [rateLimiter()],
-});
-
-auth({
-  method: 'post',
-  path: '/login',
-  body: LoginSchema,
-  response: LoginResponseSchema,
-  handler: (req) => ({ accessToken: 'demo-token' }),
-});
-```
-
-Middleware order is:
-
-```text
-Global middleware
-  -> router middleware
-  -> route middleware
-  -> Zod validation
-  -> handler
-  -> response validation
-```
-
-If a middleware writes the response or calls `next(error)`, the rest of the chain is skipped or the package error handler is used.
-
----
