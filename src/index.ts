@@ -17,7 +17,11 @@ export type {
   Middleware,
   ScopedRouter,
   CreateRouterOptions,
-  OpenApiSecurity,
+  OpenApiSecuritySchemeObject,
+  SecuritySchemes,
+  OpenApiSecurityRequirement,
+  SecurityReference,
+  RouteSecurity,
 } from './types';
 
 export type { ApiDocsOptions, ApiDocsInfo, ApiDocsServer } from './docs';

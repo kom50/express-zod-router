@@ -4,14 +4,49 @@ import { describe, it, expect } from 'vitest';
 import { z, createApiRouter } from '../../src';
 
 describe('docs: security metadata and async middleware', () => {
-  it('applies custom OpenAPI config and route security metadata', async () => {
+  it('registers security schemes and supports route + router scoped security', async () => {
     const app = express();
-    const api = createApiRouter({ prefix: '/api' });
+    const api = createApiRouter({
+      prefix: '/api',
+      securitySchemes: {
+        bearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+        },
+        apiKeyAuth: {
+          type: 'apiKey',
+          in: 'header',
+          name: 'X-API-Key',
+        },
+      },
+    });
+
+    const todos = api.createRouter({
+      path: '/todos',
+      tags: ['Todos'],
+      security: ['apiKeyAuth'],
+    });
+
+    todos({
+      method: 'get',
+      path: '/private',
+      response: z.object({ ok: z.boolean() }),
+      handler: async () => ({ ok: true }),
+    });
+
+    todos({
+      method: 'get',
+      path: '/public',
+      security: [],
+      response: z.object({ ok: z.boolean() }),
+      handler: async () => ({ ok: true }),
+    });
 
     api.route({
       method: 'get',
       path: '/profile',
-      security: [{ bearerAuth: [] }],
+      security: ['bearerAuth'],
       response: z.object({ ok: z.boolean() }),
       handler: async () => ({ ok: true }),
     });
@@ -20,16 +55,6 @@ describe('docs: security metadata and async middleware', () => {
       info: {
         title: 'Secure API',
         version: '1.0.0',
-      },
-      openapi: {
-        components: {
-          securitySchemes: {
-            bearerAuth: {
-              type: 'http',
-              scheme: 'bearer',
-            },
-          },
-        },
       },
     });
 
@@ -42,7 +67,14 @@ describe('docs: security metadata and async middleware', () => {
       type: 'http',
       scheme: 'bearer',
     });
+    expect(res.body.components.securitySchemes.apiKeyAuth).toMatchObject({
+      type: 'apiKey',
+      in: 'header',
+      name: 'X-API-Key',
+    });
     expect(res.body.paths['/api/profile'].get.security).toEqual([{ bearerAuth: [] }]);
+    expect(res.body.paths['/api/todos/private'].get.security).toEqual([{ apiKeyAuth: [] }]);
+    expect(res.body.paths['/api/todos/public'].get.security).toEqual([]);
   });
 
   it('supports async middleware and propagates errors from middleware', async () => {

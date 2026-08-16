@@ -9,6 +9,39 @@ export type Method = 'get' | 'post' | 'put' | 'patch' | 'delete';
  */
 export type Middleware = RequestHandler;
 
+export type OpenApiSecuritySchemeObject =
+  | {
+      type: 'http';
+      scheme: string;
+      bearerFormat?: string;
+      description?: string;
+    }
+  | {
+      type: 'apiKey';
+      in: 'query' | 'header' | 'cookie';
+      name: string;
+      description?: string;
+    }
+  | {
+      type: 'oauth2';
+      flows: Record<string, unknown>;
+      description?: string;
+    }
+  | {
+      type: 'openIdConnect';
+      openIdConnectUrl: string;
+      description?: string;
+    };
+
+export type SecuritySchemes = Record<string, OpenApiSecuritySchemeObject>;
+type AnySecuritySchemes = Record<string, OpenApiSecuritySchemeObject>;
+
+export type OpenApiSecurityRequirement = Record<string, string[]>;
+
+export type SecurityReference<S extends AnySecuritySchemes = AnySecuritySchemes> = Extract<keyof S, string> | OpenApiSecurityRequirement;
+
+export type RouteSecurity<S extends AnySecuritySchemes = AnySecuritySchemes> = SecurityReference<S>[];
+
 export type TypedRequest<
   B extends ZodType | undefined = undefined,
   P extends ZodType | undefined = undefined,
@@ -18,8 +51,6 @@ export type TypedRequest<
   params: P extends ZodType ? z.infer<P> : Request['params'];
   query: Q extends ZodType ? z.infer<Q> : Request['query'];
 };
-
-export type OpenApiSecurity = Record<string, string[]>[];
 
 export interface ResponseConfig {
   schema?: ZodType;
@@ -42,6 +73,7 @@ export type InferResponses<Rs extends Record<number, ResponseConfig>> = {
 }[keyof Rs];
 
 export interface RouteConfig<
+  S extends AnySecuritySchemes = AnySecuritySchemes,
   B extends ZodType | undefined = undefined,
   P extends ZodType | undefined = undefined,
   Q extends ZodType | undefined = undefined,
@@ -56,7 +88,7 @@ export interface RouteConfig<
   body?: B;
   params?: P;
   query?: Q;
-  security?: OpenApiSecurity;
+  security?: RouteSecurity<S>;
 
   /**
    * Route-level middleware. Executes after global middleware, before validation.
@@ -104,10 +136,14 @@ export interface CreateRouterOptions {
   path: string;
   tags?: string[];
   middleware?: Middleware[];
-  security?: OpenApiSecurity;
+  security?: RouteSecurity;
 }
 
-export type ScopedRouter = {
+export type CreateRouterOptionsFor<S extends AnySecuritySchemes = AnySecuritySchemes> = Omit<CreateRouterOptions, 'security'> & {
+  security?: RouteSecurity<S>;
+};
+
+export type ScopedRouter<S extends AnySecuritySchemes = AnySecuritySchemes> = {
   <
     B extends ZodType | undefined = undefined,
     P extends ZodType | undefined = undefined,
@@ -115,13 +151,13 @@ export type ScopedRouter = {
     R extends ZodType | undefined = undefined,
     Rs extends Record<number, ResponseConfig> | undefined = undefined,
   >(
-    config: RouteConfig<B, P, Q, R, Rs>,
-  ): ApiRouter;
+    config: RouteConfig<S, B, P, Q, R, Rs>,
+  ): ApiRouter<S>;
 
-  use: (middleware: Middleware) => ScopedRouter;
+  use: (middleware: Middleware) => ScopedRouter<S>;
 };
 
-export interface ApiRouter {
+export interface ApiRouter<S extends AnySecuritySchemes = AnySecuritySchemes> {
   route: <
     B extends ZodType | undefined = undefined,
     P extends ZodType | undefined = undefined,
@@ -129,16 +165,16 @@ export interface ApiRouter {
     R extends ZodType | undefined = undefined,
     Rs extends Record<number, ResponseConfig> | undefined = undefined,
   >(
-    config: RouteConfig<B, P, Q, R, Rs>,
-  ) => ApiRouter;
+    config: RouteConfig<S, B, P, Q, R, Rs>,
+  ) => ApiRouter<S>;
 
-  createRouter: ((prefix: string, tags?: string[]) => ScopedRouter) & ((options: CreateRouterOptions) => ScopedRouter);
+  createRouter: ((prefix: string, tags?: string[]) => ScopedRouter<S>) & ((options: CreateRouterOptionsFor<S>) => ScopedRouter<S>);
 
-  routes: (modules: ApiRouteModule[]) => ApiRouter;
+  routes: (modules: ApiRouteModule<S>[]) => ApiRouter<S>;
   mount: (app: import('express').Express) => import('express').Express;
-  docs: (options?: import('./docs').ApiDocsOptions) => ApiRouter;
-  use: (middleware: Middleware) => ApiRouter;
+  docs: (options?: import('./docs').ApiDocsOptions) => ApiRouter<S>;
+  use: (middleware: Middleware) => ApiRouter<S>;
   registry: import('@asteasolutions/zod-to-openapi').OpenAPIRegistry;
 }
 
-export type ApiRouteModule = (api: ApiRouter) => void;
+export type ApiRouteModule<S extends AnySecuritySchemes = AnySecuritySchemes> = (api: ApiRouter<S>) => void;
