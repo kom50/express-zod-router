@@ -7,7 +7,7 @@ import type { ApiDocsOptions } from './docs';
 import { convertExpressPath, joinPaths, normalizePrefix } from './helpers';
 import { chainMiddleware } from './middleware';
 import { generateOperationId } from './operation-id';
-import { buildOpenApiResponses, defaultValidationErrorResponse, mountDocs } from './openapi';
+import { buildOpenApiRequestBody, buildOpenApiResponses, defaultValidationErrorResponse, mergeOpenApiOperation, mountDocs } from './openapi';
 import type {
   ApiRouteModule,
   ApiRouter,
@@ -101,14 +101,18 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
       operationId,
       summary,
       description,
+      deprecated,
       version,
       tags,
       body,
+      bodyExample,
       params,
       query,
       security,
+      openapi,
       middleware = [],
       response,
+      responseExample,
       responses,
       status = 200,
       responseDescription = 'Success',
@@ -137,28 +141,34 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
       return withVersionTag;
     })();
 
+    const operation = mergeOpenApiOperation(
+      {
+        operationId: finalOperationId,
+        ...(summary && { summary }),
+        ...(description && { description }),
+        ...(routeTags && { tags: routeTags }),
+        ...(normalizedSecurity && { security: normalizedSecurity }),
+        ...(deprecated !== undefined && { deprecated }),
+      },
+      openapi,
+      deprecated,
+    );
+
+    const requestBodyConfig = buildOpenApiRequestBody(body, bodyExample);
+
     registry.registerPath({
       method,
       path: convertExpressPath(fullPath),
-      operationId: finalOperationId,
-      ...(summary && { summary }),
-      ...(description && { description }),
-      ...(routeTags && { tags: routeTags }),
-      ...(normalizedSecurity && { security: normalizedSecurity }),
       request: {
-        ...(body && {
-          body: {
-            content: {
-              'application/json': { schema: body },
-            },
-          },
-        }),
+        ...(requestBodyConfig && { body: requestBodyConfig }),
         ...(params && { params }),
         ...(query && { query }),
       } as NonNullable<Parameters<typeof registry.registerPath>[0]['request']>,
+      ...operation,
       responses: {
         ...buildOpenApiResponses({
           response,
+          responseExample,
           responses,
           status,
           responseDescription,

@@ -62,6 +62,26 @@ export interface ResponseConfig {
   schema?: ZodType;
   description?: string;
   contentType?: string;
+  example?: unknown;
+}
+
+export interface OpenApiContentExample {
+  summary?: string;
+  description?: string;
+  value: unknown;
+}
+
+export interface OpenApiOperationOverrides {
+  externalDocs?: {
+    url: string;
+    description?: string;
+  };
+  deprecated?: boolean;
+  summary?: string;
+  description?: string;
+  tags?: string[];
+  operationId?: string;
+  [key: string]: unknown;
 }
 
 /**
@@ -92,6 +112,9 @@ export interface RouteConfig<
   summary?: string;
   description?: string;
   version?: string | false;
+  deprecated?: boolean;
+  bodyExample?: unknown;
+  openapi?: OpenApiOperationOverrides;
   tags?: string[];
   body?: B;
   params?: P;
@@ -109,6 +132,7 @@ export interface RouteConfig<
    * response: TodoSchema
    */
   response?: R;
+  responseExample?: unknown;
 
   /**
    * Multiple OpenAPI responses:
