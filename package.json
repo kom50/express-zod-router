@@ -30,7 +30,9 @@
     "build": "tsc",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "typecheck:security": "tsc --noEmit -p tsconfig.type-tests.json"
   },
   "engines": {
     "node": ">=18"

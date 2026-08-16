@@ -358,13 +358,21 @@ Creates a router instance with its own OpenAPI registry and optional global midd
 const api = createApiRouter({
   prefix: '/api', // optional
   middleware: [requestId(), logger()], // optional
+  securitySchemes: {
+    bearerAuth: {
+      type: 'http',
+      scheme: 'bearer',
+      bearerFormat: 'JWT',
+    },
+  },
 });
 ```
 
-| Option       | Type                 | Description                             |
-| ------------ | -------------------- | --------------------------------------- |
-| `prefix`     | `string` (optional)  | Prepended to every route path           |
-| `middleware` | `Middleware[]` (opt) | Global middleware applied to all routes |
+| Option            | Type                                              | Description                                                                            |
+| ----------------- | ------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `prefix`          | `string` (optional)                               | Prepended to every route path                                                          |
+| `middleware`      | `Middleware[]` (opt)                              | Global middleware applied to all routes                                                |
+| `securitySchemes` | `Record<string, SecuritySchemeObject>` (optional) | Registers OpenAPI `components.securitySchemes` and enables typed `security` references |
 
 Returns an `ApiRouter` with methods: `route()`, `createRouter()`, `routes()`, `docs()`, `mount()`, `use()`, and `registry`.
 
@@ -385,27 +393,28 @@ api.route({
 
 **Config options:**
 
-| Option                | Type                                              | Description                                                                                                                                    |
-| --------------------- | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `method`              | `"get" \| "post" \| "put" \| "patch" \| "delete"` | HTTP method                                                                                                                                    |
-| `path`                | `string`                                          | Route path, e.g. `/users/:id`                                                                                                                  |
-| `summary`             | `string` (optional)                               | Short label shown in Swagger UI                                                                                                                |
-| `description`         | `string` (optional)                               | Longer description shown in Swagger UI                                                                                                         |
-| `tags`                | `string[]` (optional)                             | Groups the route in Swagger UI                                                                                                                 |
-| `body`                | `ZodType` (optional)                              | Validates & types `req.body`                                                                                                                   |
-| `params`              | `ZodType` (optional)                              | Validates & types `req.params`                                                                                                                 |
-| `query`               | `ZodType` (optional)                              | Validates & types `req.query` (supports `z.coerce`)                                                                                            |
-| `response`            | `ZodType` (optional)                              | **Single-response shorthand** — validates the return value, documents it under `status`                                                        |
-| `status`              | `number` (optional)                               | Status code used with `response`. Defaults to `200`                                                                                            |
-| `responseDescription` | `string` (optional)                               | Swagger description used with `response`. Defaults to `"Success"`                                                                              |
-| `responses`           | `Record<number, ResponseConfig>` (optional)       | **Multi-response map** — declare every status code the route can return (see below). Takes priority over `response`/`status` for documentation |
-| `handler`             | `(req, res) => any`                               | Return the payload directly, or call `res.send()`/`res.json()` yourself                                                                        |
+| Option                | Type                                                       | Description                                                                                                                                    |
+| --------------------- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `method`              | `"get" \| "post" \| "put" \| "patch" \| "delete"`          | HTTP method                                                                                                                                    |
+| `path`                | `string`                                                   | Route path, e.g. `/users/:id`                                                                                                                  |
+| `summary`             | `string` (optional)                                        | Short label shown in Swagger UI                                                                                                                |
+| `description`         | `string` (optional)                                        | Longer description shown in Swagger UI                                                                                                         |
+| `tags`                | `string[]` (optional)                                      | Groups the route in Swagger UI                                                                                                                 |
+| `body`                | `ZodType` (optional)                                       | Validates & types `req.body`                                                                                                                   |
+| `params`              | `ZodType` (optional)                                       | Validates & types `req.params`                                                                                                                 |
+| `query`               | `ZodType` (optional)                                       | Validates & types `req.query` (supports `z.coerce`)                                                                                            |
+| `security`            | `(SecuritySchemeName \| SecurityRequirement)[]` (optional) | Route-level OpenAPI security metadata. Example: `['bearerAuth']` or `[{ oauth2: ['users:read'] }]`                                             |
+| `response`            | `ZodType` (optional)                                       | **Single-response shorthand** — validates the return value, documents it under `status`                                                        |
+| `status`              | `number` (optional)                                        | Status code used with `response`. Defaults to `200`                                                                                            |
+| `responseDescription` | `string` (optional)                                        | Swagger description used with `response`. Defaults to `"Success"`                                                                              |
+| `responses`           | `Record<number, ResponseConfig>` (optional)                | **Multi-response map** — declare every status code the route can return (see below). Takes priority over `response`/`status` for documentation |
+| `handler`             | `(req, res) => any`                                        | Return the payload directly, or call `res.send()`/`res.json()` yourself                                                                        |
 
 Returns the `ApiRouter` instance, so calls can be chained.
 
 ---
 
-### `api.createRouter(prefix, tags?)`
+### `api.createRouter(prefix, tags?)` / `api.createRouter(options)`
 
 Returns a scoped route-registration function with a path prefix and default tags
 baked in — equivalent to FastAPI's `APIRouter(prefix=..., tags=[...])`.
@@ -417,6 +426,31 @@ todo({
   method: 'get',
   path: '/:id', // resolves to {api prefix}/todos/:id
   handler: (req) => ({ id: req.params.id }),
+});
+```
+
+You can also pass router-level middleware and security defaults:
+
+```ts
+const todo = api.createRouter({
+  path: '/todos',
+  tags: ['Todos'],
+  security: ['bearerAuth'],
+});
+
+todo({
+  method: 'get',
+  path: '/private',
+  response: z.object({ ok: z.boolean() }),
+  handler: () => ({ ok: true }),
+});
+
+todo({
+  method: 'get',
+  path: '/public',
+  security: [],
+  response: z.object({ ok: z.boolean() }),
+  handler: () => ({ ok: true }),
 });
 ```
 

@@ -7,18 +7,45 @@ import type { ApiDocsOptions } from './docs';
 import { convertExpressPath, joinPaths, normalizePrefix } from './helpers';
 import { chainMiddleware } from './middleware';
 import { buildOpenApiResponses, defaultValidationErrorResponse, mountDocs } from './openapi';
-import type { ApiRouteModule, ApiRouter, CreateRouterOptions, Middleware, OpenApiSecurity, ResponseConfig, RouteConfig, TypedRequest } from './types';
+import type {
+  ApiRouteModule,
+  ApiRouter,
+  CreateRouterOptionsFor,
+  Middleware,
+  OpenApiSecurityRequirement,
+  ResponseConfig,
+  RouteConfig,
+  RouteSecurity,
+  SecuritySchemes,
+  TypedRequest,
+} from './types';
 
-export interface CreateApiRouterOptions {
+export interface CreateApiRouterOptions<S extends SecuritySchemes = SecuritySchemes> {
   prefix?: string;
   middleware?: Middleware[];
+  securitySchemes?: S;
 }
 
-export function createApiRouter(options: CreateApiRouterOptions = {}): ApiRouter {
+function normalizeSecurity<S extends SecuritySchemes>(security?: RouteSecurity<S>): OpenApiSecurityRequirement[] | undefined {
+  if (!security) {
+    return undefined;
+  }
+
+  return security.map((entry) => {
+    if (typeof entry === 'string') {
+      return { [entry]: [] } as OpenApiSecurityRequirement;
+    }
+
+    return entry;
+  });
+}
+
+export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(options: CreateApiRouterOptions<S> = {}): ApiRouter<S> {
   const registry = new OpenAPIRegistry();
   const registeredRoutes: RegisteredRoute[] = [];
   const globalMiddleware: Middleware[] = [...(options.middleware ?? [])];
   const prefix = normalizePrefix(options.prefix);
+  const securitySchemes = options.securitySchemes;
   let docsOptions: ApiDocsOptions | undefined;
 
   function route<
@@ -27,7 +54,7 @@ export function createApiRouter(options: CreateApiRouterOptions = {}): ApiRouter
     Q extends ZodType | undefined = undefined,
     R extends ZodType | undefined = undefined,
     Rs extends Record<number, ResponseConfig> | undefined = undefined,
-  >(config: RouteConfig<B, P, Q, R, Rs>): ApiRouter {
+  >(config: RouteConfig<S, B, P, Q, R, Rs>): ApiRouter<S> {
     const {
       method,
       path,
@@ -47,6 +74,7 @@ export function createApiRouter(options: CreateApiRouterOptions = {}): ApiRouter
     } = config;
 
     const fullPath = joinPaths(prefix, path);
+    const normalizedSecurity = normalizeSecurity(security);
 
     registry.registerPath({
       method,
@@ -54,7 +82,7 @@ export function createApiRouter(options: CreateApiRouterOptions = {}): ApiRouter
       ...(summary && { summary }),
       ...(description && { description }),
       ...(tags && { tags }),
-      ...(security && { security }),
+      ...(normalizedSecurity && { security: normalizedSecurity }),
       request: {
         ...(body && {
           body: {
@@ -138,11 +166,11 @@ export function createApiRouter(options: CreateApiRouterOptions = {}): ApiRouter
     return api;
   }
 
-  function createRouter(prefixOrOptions: string | CreateRouterOptions, routerTags: string[] = []) {
+  function createRouter(prefixOrOptions: string | CreateRouterOptionsFor<S>, routerTags: string[] = []) {
     let routerPrefix: string;
     let tags: string[];
     let initialMiddleware: Middleware[];
-    let initialSecurity: OpenApiSecurity | undefined;
+    let initialSecurity: RouteSecurity<S> | undefined;
 
     if (typeof prefixOrOptions === 'string') {
       routerPrefix = prefixOrOptions;
@@ -158,7 +186,7 @@ export function createApiRouter(options: CreateApiRouterOptions = {}): ApiRouter
 
     const normalizedPrefix = normalizePrefix(routerPrefix);
     const routerMiddleware: Middleware[] = [...initialMiddleware];
-    const routerSecurity: OpenApiSecurity | undefined = initialSecurity;
+    const routerSecurity: RouteSecurity<S> | undefined = initialSecurity;
 
     type ScopedRouterImpl = {
       <
@@ -168,18 +196,18 @@ export function createApiRouter(options: CreateApiRouterOptions = {}): ApiRouter
         R extends ZodType | undefined = undefined,
         Rs extends Record<number, ResponseConfig> | undefined = undefined,
       >(
-        config: Omit<RouteConfig<B, P, Q, R, Rs>, 'path' | 'tags' | 'security'> & {
+        config: Omit<RouteConfig<S, B, P, Q, R, Rs>, 'path' | 'tags' | 'security'> & {
           path?: string;
-          security?: OpenApiSecurity;
+          security?: RouteSecurity<S>;
         },
-      ): ApiRouter;
+      ): ApiRouter<S>;
       use: (middleware: Middleware) => ScopedRouterImpl;
     };
 
     const routerFunction: ScopedRouterImpl = ((
       config: Omit<RouteConfig<any, any, any, any, any>, 'path' | 'tags' | 'security'> & {
         path?: string;
-        security?: OpenApiSecurity;
+        security?: RouteSecurity<S>;
       },
     ) => {
       const routePath = joinPaths(normalizedPrefix, config.path ?? '');
@@ -203,14 +231,14 @@ export function createApiRouter(options: CreateApiRouterOptions = {}): ApiRouter
     return routerFunction;
   }
 
-  function registerRoutes(modules: ApiRouteModule[]): ApiRouter {
+  function registerRoutes(modules: ApiRouteModule<S>[]): ApiRouter<S> {
     for (const module of modules) {
       module(api);
     }
     return api;
   }
 
-  function docs(options: ApiDocsOptions = {}): ApiRouter {
+  function docs(options: ApiDocsOptions = {}): ApiRouter<S> {
     docsOptions = options;
     return api;
   }
@@ -221,13 +249,35 @@ export function createApiRouter(options: CreateApiRouterOptions = {}): ApiRouter
     }
 
     if (docsOptions) {
-      mountDocs(app, docsOptions, registry);
+      const mergedOpenApi = {
+        ...(docsOptions.openapi ?? {}),
+      } as Record<string, unknown>;
+
+      if (securitySchemes) {
+        const existingComponents =
+          typeof mergedOpenApi.components === 'object' && mergedOpenApi.components ? (mergedOpenApi.components as Record<string, unknown>) : {};
+
+        const existingSecuritySchemes =
+          typeof existingComponents.securitySchemes === 'object' && existingComponents.securitySchemes
+            ? (existingComponents.securitySchemes as Record<string, unknown>)
+            : {};
+
+        mergedOpenApi.components = {
+          ...existingComponents,
+          securitySchemes: {
+            ...securitySchemes,
+            ...existingSecuritySchemes,
+          },
+        };
+      }
+
+      mountDocs(app, { ...docsOptions, openapi: mergedOpenApi }, registry);
     }
 
     return app;
   }
 
-  const api: ApiRouter = {
+  const api: ApiRouter<S> = {
     route,
     createRouter,
     routes: registerRoutes,
