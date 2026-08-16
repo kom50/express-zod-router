@@ -595,6 +595,12 @@ const todo = api.createRouter({
   path: '/todos',
   tags: ['Todos'],
   security: ['bearerAuth'],
+  deprecated: true,
+  description: 'Todo endpoints',
+  externalDocs: {
+    url: 'https://example.com/docs/todos',
+    description: 'Todo API docs',
+  },
 });
 
 todo({
@@ -619,6 +625,40 @@ todo({
 - `version: string | false`
   - Use `version: 'v2'` (or `'2'`) to mount under that version prefix.
   - Use `version: false` to disable inherited versioning for this router.
+- `deprecated: boolean`
+  - Inherited by routes in this scoped router unless route-level `deprecated` is explicitly set.
+- `description: string`
+  - Applied to the OpenAPI tag metadata for each tag in `tags` (shows at the Swagger group header level, not as per-route description).
+- `externalDocs: { url: string; description?: string }`
+  - Applied to OpenAPI tag metadata for each tag in `tags`.
+
+Router-level metadata example:
+
+```ts
+const users = api.createRouter({
+  path: '/users',
+  tags: ['Users'],
+  version: '2',
+  deprecated: true,
+  description: 'Endpoints for managing users',
+  externalDocs: {
+    url: 'https://example.com/docs/users',
+    description: 'Users API docs',
+  },
+});
+
+users({
+  method: 'get',
+  path: '/:id',
+  response: UserSchema,
+  handler: (req) => ({ id: req.params.id }),
+});
+```
+
+In this example:
+
+- The route is marked `deprecated` unless overridden on the route.
+- `description` and `externalDocs` appear in OpenAPI `tags` metadata for `Users`.
 
 ---
 
