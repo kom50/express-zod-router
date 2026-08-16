@@ -3,6 +3,10 @@ import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import { createApiRouter, z } from '../../src';
 
+// Type-level guard: invalid version literals should fail compilation.
+// @ts-expect-error - only numeric versions are allowed ("2" or "v2")
+const _invalidVersionTypeCheck: import('../../src/types').ApiVersion = 'dsseeew1';
+
 describe('versioning', () => {
   it('supports global defaultVersion for routes and routers', async () => {
     const app = express();
@@ -109,6 +113,48 @@ describe('versioning', () => {
     expect(res.status).toBe(200);
     expect(res.body.paths['/api/v1/health']).toBeDefined();
     expect(res.body.paths['/api/v1/health'].get.tags).toContain('v1');
+  });
+
+  it('does not auto-add version tag when explicit route tags are present', async () => {
+    const app = express();
+    const api = createApiRouter({
+      prefix: '/api',
+      version: {
+        defaultVersion: 'v2',
+        supportedVersions: ['v1', 'v2'],
+        autoTag: true,
+      },
+    });
+
+    const users = api.createRouter({
+      path: '/users',
+      tags: ['Users'],
+      version: '2',
+    });
+
+    users({
+      method: 'get',
+      path: '/:id/posts',
+      params: z.object({ id: z.string() }),
+      response: z.object({ ok: z.boolean() }),
+      handler: async () => ({ ok: true }),
+    });
+
+    api.docs({
+      info: {
+        title: 'Tagged API',
+        version: '1.0.0',
+      },
+    });
+
+    api.mount(app);
+
+    const res = await request(app).get('/api-docs.json');
+    expect(res.status).toBe(200);
+
+    const route = res.body.paths['/api/v2/users/{id}/posts'].get;
+    expect(route.tags).toEqual(['Users']);
+    expect(route.tags).not.toContain('v2');
   });
 
   it('throws for unsupported versions', () => {

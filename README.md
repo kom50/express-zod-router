@@ -384,7 +384,7 @@ const api = createApiRouter({
 | `prefix`          | `string` (optional)                                                             | Prepended to every route path                                                          |
 | `middleware`      | `Middleware[]` (opt)                                                            | Global middleware applied to all routes                                                |
 | `openapi`         | `{ operationId?: { strategy?: 'rest' \| 'handler' \| 'explicit' } }` (optional) | OpenAPI generation options, including operationId strategy                             |
-| `version`         | `{ defaultVersion?, supportedVersions?, autoTag? }` (optional)                  | Global API versioning defaults and validation                                          |
+| `version`         | `{ defaultVersion?: ApiVersion, supportedVersions?: ApiVersion[], autoTag?: boolean }` (optional) | Global API versioning defaults and validation                                          |
 | `securitySchemes` | `Record<string, SecuritySchemeObject>` (optional)                               | Registers OpenAPI `components.securitySchemes` and enables typed `security` references |
 
 Returns an `ApiRouter` with methods: `route()`, `createRouter()`, `routes()`, `docs()`, `mount()`, `use()`, and `registry`.
@@ -414,7 +414,7 @@ api.route({
 | `summary`             | `string` (optional)                                        | Short label shown in Swagger UI                                                                                                                |
 | `description`         | `string` (optional)                                        | Longer description shown in Swagger UI                                                                                                         |
 | `deprecated`          | `boolean` (optional)                                       | Mark route as deprecated in OpenAPI spec (Phase 2)                                                                                             |
-| `version`             | `string \| false` (optional)                               | Route version. Inherits global/router defaults. `false` disables version inheritance for this route                                            |
+| `version`             | `ApiVersion \| false` (optional)                           | Route version. Inherits global/router defaults. `false` disables version inheritance for this route. `ApiVersion` is `"2"`, `"10"`, `"v2"`, etc. |
 | `tags`                | `string[]` (optional)                                      | Groups the route in Swagger UI                                                                                                                 |
 | `body`                | `ZodType \| { schema: ZodType; example?: unknown }` (optional) | Validates & types `req.body`. When using the object form, `schema` is required and `example` appears in OpenAPI (Phase 2)                     |
 | `params`              | `ZodType` (optional)                                       | Validates & types `req.params`                                                                                                                 |
@@ -622,7 +622,7 @@ todo({
 
 `createRouter(options)` also supports:
 
-- `version: string | false`
+- `version: ApiVersion | false`
   - Use `version: 'v2'` (or `'2'`) to mount under that version prefix.
   - Use `version: false` to disable inherited versioning for this router.
 - `deprecated: boolean`
@@ -631,6 +631,8 @@ todo({
   - Applied to the OpenAPI tag metadata for each tag in `tags` (shows at the Swagger group header level, not as per-route description).
 - `externalDocs: { url: string; description?: string }`
   - Applied to OpenAPI tag metadata for each tag in `tags`.
+
+When global `version.autoTag` is `true`, a version tag (like `v2`) is auto-added only when the route has no explicit tags. If `tags` are already present (for example `['Users']`), the route keeps those tags and avoids duplicate grouping under both `Users` and `v2`.
 
 Router-level metadata example:
 

@@ -9,6 +9,7 @@ import { chainMiddleware } from './middleware';
 import { generateOperationId } from './operation-id';
 import { buildOpenApiRequestBody, buildOpenApiResponses, defaultValidationErrorResponse, mergeOpenApiOperation, mountDocs } from './openapi';
 import type {
+  ApiVersion,
   ApiRouteModule,
   ApiRouter,
   CreateRouterOptionsFor,
@@ -81,7 +82,7 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
   let docsOptions: ApiDocsOptions | undefined;
   const tagDescriptions = new Map<string, { description?: string; externalDocs?: { url: string; description?: string } }>();
 
-  function normalizeVersion(version: string): string {
+  function normalizeVersion(version: ApiVersion): string {
     const trimmedVersion = version.trim();
     if (!trimmedVersion) {
       throw new Error('Version cannot be empty');
@@ -90,7 +91,7 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
     return trimmedVersion.startsWith('v') ? trimmedVersion : `v${trimmedVersion}`;
   }
 
-  function resolveVersion(version: string | false | undefined): string | undefined {
+  function resolveVersion(version: ApiVersion | false | undefined): string | undefined {
     if (version === false) {
       return undefined;
     }
@@ -157,6 +158,10 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
     operationIds.add(finalOperationId);
     const routeTags = (() => {
       if (!resolvedVersion || versionConfig?.autoTag === false) {
+        return tags;
+      }
+
+      if (tags && tags.length > 0) {
         return tags;
       }
 
@@ -266,7 +271,7 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
 
   function createRouter(prefixOrOptions: string | CreateRouterOptionsFor<S>, routerTags: string[] = []) {
     let routerPrefix: string;
-    let routerVersion: string | false | undefined;
+    let routerVersion: ApiVersion | false | undefined;
     let tags: string[];
     let initialMiddleware: Middleware[];
     let initialSecurity: RouteSecurity<S> | undefined;
@@ -312,7 +317,7 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
       >(
         config: Omit<RouteConfig<S, B, P, Q, R, Rs>, 'path' | 'tags' | 'security'> & {
           path?: string;
-          version?: string | false;
+          version?: ApiVersion | false;
           security?: RouteSecurity<S>;
         },
       ): ApiRouter<S>;
@@ -322,7 +327,7 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
     const routerFunction: ScopedRouterImpl = ((
       config: Omit<RouteConfig<any, any, any, any, any>, 'path' | 'tags' | 'security'> & {
         path?: string;
-        version?: string | false;
+        version?: ApiVersion | false;
         security?: RouteSecurity<S>;
       },
     ) => {
@@ -362,7 +367,7 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
     return api;
   }
 
-  function version(versionString: string, options: Omit<CreateRouterOptionsFor<S>, 'path' | 'version'> = {}) {
+  function version(versionString: ApiVersion, options: Omit<CreateRouterOptionsFor<S>, 'path' | 'version'> = {}) {
     return createRouter({
       path: '',
       version: versionString,
