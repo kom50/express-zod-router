@@ -373,12 +373,12 @@ const api = createApiRouter({
 });
 ```
 
-| Option            | Type                                              | Description                                                                            |
-| ----------------- | ------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| `prefix`          | `string` (optional)                               | Prepended to every route path                                                          |
-| `middleware`      | `Middleware[]` (opt)                              | Global middleware applied to all routes                                                |
-| `version`         | `{ defaultVersion?, supportedVersions?, autoTag? }` (optional) | Global API versioning defaults and validation                                           |
-| `securitySchemes` | `Record<string, SecuritySchemeObject>` (optional) | Registers OpenAPI `components.securitySchemes` and enables typed `security` references |
+| Option            | Type                                                           | Description                                                                            |
+| ----------------- | -------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `prefix`          | `string` (optional)                                            | Prepended to every route path                                                          |
+| `middleware`      | `Middleware[]` (opt)                                           | Global middleware applied to all routes                                                |
+| `version`         | `{ defaultVersion?, supportedVersions?, autoTag? }` (optional) | Global API versioning defaults and validation                                          |
+| `securitySchemes` | `Record<string, SecuritySchemeObject>` (optional)              | Registers OpenAPI `components.securitySchemes` and enables typed `security` references |
 
 Returns an `ApiRouter` with methods: `route()`, `createRouter()`, `routes()`, `docs()`, `mount()`, `use()`, and `registry`.
 
@@ -406,7 +406,7 @@ api.route({
 | `operationId`         | `string` (optional)                                        | Manual OpenAPI operation ID override. If omitted, a REST-aware ID is generated automatically                                                   |
 | `summary`             | `string` (optional)                                        | Short label shown in Swagger UI                                                                                                                |
 | `description`         | `string` (optional)                                        | Longer description shown in Swagger UI                                                                                                         |
-| `version`             | `string \| false` (optional)                               | Route version. Inherits global/router defaults. `false` disables version inheritance for this route                                           |
+| `version`             | `string \| false` (optional)                               | Route version. Inherits global/router defaults. `false` disables version inheritance for this route                                            |
 | `tags`                | `string[]` (optional)                                      | Groups the route in Swagger UI                                                                                                                 |
 | `body`                | `ZodType` (optional)                                       | Validates & types `req.body`                                                                                                                   |
 | `params`              | `ZodType` (optional)                                       | Validates & types `req.params`                                                                                                                 |

@@ -67,9 +67,7 @@ function methodAction(method: Method, isCollection: boolean): string {
  */
 export function generateOperationId(method: Method, path: string): string {
   const segments = path.split('/').filter(Boolean);
-  const staticSegments = segments
-    .map((segment, index) => ({ segment, index, isParam: segment.startsWith(':') }))
-    .filter((segment) => !segment.isParam);
+  const staticSegments = segments.map((segment, index) => ({ segment, index, isParam: segment.startsWith(':') })).filter((segment) => !segment.isParam);
 
   if (staticSegments.length === 0) {
     const paramNames = segments.filter((segment) => segment.startsWith(':')).map((segment) => toPascalCase(segment.replace(/^:/, '')));
