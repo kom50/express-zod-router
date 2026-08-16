@@ -15,6 +15,8 @@ import type {
   Middleware,
   OpenApiSecurityRequirement,
   ResponseConfig,
+  RouteResponseConfig,
+  RouteSchemaConfig,
   RouteConfig,
   RouteSecurity,
   SecuritySchemes,
@@ -46,6 +48,24 @@ function normalizeSecurity<S extends SecuritySchemes>(security?: RouteSecurity<S
 
     return entry;
   });
+}
+
+function unwrapSchemaConfig<T extends ZodType | undefined>(value?: T | RouteSchemaConfig<NonNullable<T>>, fallbackExample?: unknown): { schema?: NonNullable<T>; example?: unknown } {
+  if (value && typeof value === 'object' && 'schema' in value) {
+    const config = value as RouteSchemaConfig<NonNullable<T>>;
+    return { schema: config.schema, example: config.example };
+  }
+
+  return { schema: value, example: fallbackExample };
+}
+
+function unwrapResponseConfig<T extends ZodType | undefined>(value?: T | RouteResponseConfig<NonNullable<T>>, fallbackExample?: unknown): { schema?: NonNullable<T>; example?: unknown; description?: string } {
+  if (value && typeof value === 'object' && 'schema' in value) {
+    const config = value as RouteResponseConfig<NonNullable<T>>;
+    return { schema: config.schema, example: config.example, description: config.description };
+  }
+
+  return { schema: value, example: fallbackExample, description: undefined };
 }
 
 export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(options: CreateApiRouterOptions<S> = {}): ApiRouter<S> {
@@ -124,6 +144,11 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
     const fullPath = joinPaths(basePath, path);
     const normalizedSecurity = normalizeSecurity(security);
     const finalOperationId = generateOperationId(method, path, handler as Function, operationId, operationIdStrategy);
+    const { schema: requestBodySchema, example: requestBodyExample } = unwrapSchemaConfig(body, bodyExample);
+    const { schema: responseSchema, example: responseExampleFromConfig, description: responseDescriptionFromConfig } = unwrapResponseConfig(
+      response,
+      responseExample,
+    );
 
     if (operationIds.has(finalOperationId)) {
       throw new Error(`Duplicate operationId detected: ${finalOperationId}`);
@@ -154,7 +179,7 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
       deprecated,
     );
 
-    const requestBodyConfig = buildOpenApiRequestBody(body, bodyExample);
+    const requestBodyConfig = buildOpenApiRequestBody(requestBodySchema, requestBodyExample);
 
     registry.registerPath({
       method,
@@ -167,11 +192,11 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
       ...operation,
       responses: {
         ...buildOpenApiResponses({
-          response,
-          responseExample,
+          response: responseSchema,
+          responseExample: responseExampleFromConfig,
           responses,
           status,
-          responseDescription,
+          responseDescription: responseDescriptionFromConfig ?? responseDescription,
         }),
         400: defaultValidationErrorResponse,
       },
@@ -179,7 +204,7 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
 
     const coreHandler: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
       try {
-        if (body) req.body = body.parse(req.body);
+        if (requestBodySchema) req.body = requestBodySchema.parse(req.body);
         if (params) req.params = params.parse(req.params) as typeof req.params;
 
         let handlerReq = req;
@@ -212,8 +237,8 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
           rawBody = result;
         }
 
-        const responseSchema = responses ? responses[responseStatus]?.schema : response;
-        const payload = responseSchema ? responseSchema.parse(rawBody) : rawBody;
+        const responseValidationSchema = responses ? responses[responseStatus]?.schema : responseSchema;
+        const payload = responseValidationSchema ? responseValidationSchema.parse(rawBody) : rawBody;
 
         if (responseStatus === 204) {
           res.status(204).send();

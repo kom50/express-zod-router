@@ -416,13 +416,11 @@ api.route({
 | `deprecated`          | `boolean` (optional)                                       | Mark route as deprecated in OpenAPI spec (Phase 2)                                                                                             |
 | `version`             | `string \| false` (optional)                               | Route version. Inherits global/router defaults. `false` disables version inheritance for this route                                            |
 | `tags`                | `string[]` (optional)                                      | Groups the route in Swagger UI                                                                                                                 |
-| `body`                | `ZodType` (optional)                                       | Validates & types `req.body`                                                                                                                   |
-| `bodyExample`         | `unknown` (optional)                                       | Example value for request body in OpenAPI (Phase 2)                                                                                            |
+| `body`                | `ZodType \| { schema: ZodType; example?: unknown }` (optional) | Validates & types `req.body`. When using the object form, `schema` is required and `example` appears in OpenAPI (Phase 2)                     |
 | `params`              | `ZodType` (optional)                                       | Validates & types `req.params`                                                                                                                 |
 | `query`               | `ZodType` (optional)                                       | Validates & types `req.query` (supports `z.coerce`)                                                                                            |
 | `security`            | `(SecuritySchemeName \| SecurityRequirement)[]` (optional) | Route-level OpenAPI security metadata. Example: `['bearerAuth']` or `[{ oauth2: ['users:read'] }]`                                             |
-| `response`            | `ZodType` (optional)                                       | **Single-response shorthand** — validates the return value, documents it under `status`                                                        |
-| `responseExample`     | `unknown` (optional)                                       | Example value for response body in OpenAPI (Phase 2)                                                                                           |
+| `response`            | `ZodType \| { schema: ZodType; description?: string; example?: unknown }` (optional) | **Single-response shorthand** — validates the return value, documents it under `status`                                                        |
 | `status`              | `number` (optional)                                        | Status code used with `response`. Defaults to `200`                                                                                            |
 | `responseDescription` | `string` (optional)                                        | Swagger description used with `response`. Defaults to `"Success"`                                                                              |
 | `responses`           | `Record<number, ResponseConfig>` (optional)                | **Multi-response map** — declare every status code the route can return (see below). Takes priority over `response`/`status` for documentation |
@@ -509,13 +507,15 @@ Add realistic examples to requests/responses for better API documentation:
 api.route({
   method: 'post',
   path: '/users',
-  body: z.object({
-    name: z.string(),
-    email: z.string().email(),
-  }),
-  bodyExample: {
-    name: 'John Doe',
-    email: 'john@example.com',
+  body: {
+    schema: z.object({
+      name: z.string(),
+      email: z.string().email(),
+    }),
+    example: {
+      name: 'John Doe',
+      email: 'john@example.com',
+    },
   },
   response: UserSchema,
   handler: (req, res) => {
@@ -528,11 +528,13 @@ api.route({
   method: 'get',
   path: '/users/:id',
   params: z.object({ id: z.coerce.number() }),
-  response: UserSchema,
-  responseExample: {
-    id: 1,
-    name: 'Jane Smith',
-    email: 'jane@example.com',
+  response: {
+    schema: UserSchema,
+    example: {
+      id: 1,
+      name: 'Jane Smith',
+      email: 'jane@example.com',
+    },
   },
   handler: (req, res) => {
     res.json({ id: req.params.id, name: 'Jane', email: 'jane@example.com' });

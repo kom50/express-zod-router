@@ -34,13 +34,15 @@ describe('Phase 2: OpenAPI Content Metadata', () => {
     router.route({
       method: 'post',
       path: '/users',
-      body: z.object({
-        name: z.string(),
-        email: z.string().email(),
-      }),
-      bodyExample: {
-        name: 'John Doe',
-        email: 'john@example.com',
+      body: {
+        schema: z.object({
+          name: z.string(),
+          email: z.string().email(),
+        }),
+        example: {
+          name: 'John Doe',
+          email: 'john@example.com',
+        },
       },
       response: UserSchema,
       handler: (req) => ({
@@ -56,11 +58,13 @@ describe('Phase 2: OpenAPI Content Metadata', () => {
       params: z.object({
         id: z.coerce.number(),
       }),
-      response: UserSchema,
-      responseExample: {
-        id: 1,
-        name: 'John Doe',
-        email: 'john@example.com',
+      response: {
+        schema: UserSchema,
+        example: {
+          id: 1,
+          name: 'John Doe',
+          email: 'john@example.com',
+        },
       },
       handler: (req) => ({
         id: req.params.id,
@@ -104,7 +108,7 @@ describe('Phase 2: OpenAPI Content Metadata', () => {
     expect(deprecatedPath?.deprecated).toBe(true);
   });
 
-  it('should include bodyExample in request schema', () => {
+  it('should include body example in request content', () => {
     const postPath = spec.paths['/users']?.post;
     expect(postPath).toBeDefined();
 
@@ -120,7 +124,7 @@ describe('Phase 2: OpenAPI Content Metadata', () => {
     });
   });
 
-  it('should include responseExample in response schema', () => {
+  it('should include response example in response content', () => {
     const getPath = spec.paths['/users/{id}']?.get;
     expect(getPath).toBeDefined();
 
