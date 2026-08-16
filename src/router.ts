@@ -18,12 +18,14 @@ import type {
   RouteSecurity,
   SecuritySchemes,
   TypedRequest,
+  VersionConfig,
 } from './types';
 
 export interface CreateApiRouterOptions<S extends SecuritySchemes = SecuritySchemes> {
   prefix?: string;
   middleware?: Middleware[];
   securitySchemes?: S;
+  version?: VersionConfig;
 }
 
 function normalizeSecurity<S extends SecuritySchemes>(security?: RouteSecurity<S>): OpenApiSecurityRequirement[] | undefined {
@@ -46,7 +48,37 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
   const globalMiddleware: Middleware[] = [...(options.middleware ?? [])];
   const prefix = normalizePrefix(options.prefix);
   const securitySchemes = options.securitySchemes;
+  const versionConfig = options.version;
+  const normalizedSupportedVersions = versionConfig?.supportedVersions?.map((version) => normalizeVersion(version));
   let docsOptions: ApiDocsOptions | undefined;
+
+  function normalizeVersion(version: string): string {
+    const trimmedVersion = version.trim();
+    if (!trimmedVersion) {
+      throw new Error('Version cannot be empty');
+    }
+
+    return trimmedVersion.startsWith('v') ? trimmedVersion : `v${trimmedVersion}`;
+  }
+
+  function resolveVersion(version: string | false | undefined): string | undefined {
+    if (version === false) {
+      return undefined;
+    }
+
+    const versionToUse = version ?? versionConfig?.defaultVersion;
+    if (!versionToUse) {
+      return undefined;
+    }
+
+    const normalizedVersion = normalizeVersion(versionToUse);
+
+    if (normalizedSupportedVersions && !normalizedSupportedVersions.includes(normalizedVersion)) {
+      throw new Error(`Unsupported version: ${normalizedVersion}`);
+    }
+
+    return normalizedVersion;
+  }
 
   function route<
     B extends ZodType | undefined = undefined,
@@ -60,6 +92,7 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
       path,
       summary,
       description,
+      version,
       tags,
       body,
       params,
@@ -73,15 +106,28 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
       handler,
     } = config;
 
-    const fullPath = joinPaths(prefix, path);
+    const resolvedVersion = resolveVersion(version);
+    const basePath = resolvedVersion ? joinPaths(prefix, `/${resolvedVersion}`) : prefix;
+    const fullPath = joinPaths(basePath, path);
     const normalizedSecurity = normalizeSecurity(security);
+    const routeTags = (() => {
+      if (!resolvedVersion || versionConfig?.autoTag === false) {
+        return tags;
+      }
+
+      const withVersionTag = tags ? [...tags] : [];
+      if (!withVersionTag.includes(resolvedVersion)) {
+        withVersionTag.unshift(resolvedVersion);
+      }
+      return withVersionTag;
+    })();
 
     registry.registerPath({
       method,
       path: convertExpressPath(fullPath),
       ...(summary && { summary }),
       ...(description && { description }),
-      ...(tags && { tags }),
+      ...(routeTags && { tags: routeTags }),
       ...(normalizedSecurity && { security: normalizedSecurity }),
       request: {
         ...(body && {
@@ -168,17 +214,20 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
 
   function createRouter(prefixOrOptions: string | CreateRouterOptionsFor<S>, routerTags: string[] = []) {
     let routerPrefix: string;
+    let routerVersion: string | false | undefined;
     let tags: string[];
     let initialMiddleware: Middleware[];
     let initialSecurity: RouteSecurity<S> | undefined;
 
     if (typeof prefixOrOptions === 'string') {
       routerPrefix = prefixOrOptions;
+      routerVersion = undefined;
       tags = routerTags;
       initialMiddleware = [];
       initialSecurity = undefined;
     } else {
       routerPrefix = prefixOrOptions.path;
+      routerVersion = prefixOrOptions.version;
       tags = prefixOrOptions.tags ?? [];
       initialMiddleware = prefixOrOptions.middleware ?? [];
       initialSecurity = prefixOrOptions.security;
@@ -198,6 +247,7 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
       >(
         config: Omit<RouteConfig<S, B, P, Q, R, Rs>, 'path' | 'tags' | 'security'> & {
           path?: string;
+          version?: string | false;
           security?: RouteSecurity<S>;
         },
       ): ApiRouter<S>;
@@ -207,17 +257,20 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
     const routerFunction: ScopedRouterImpl = ((
       config: Omit<RouteConfig<any, any, any, any, any>, 'path' | 'tags' | 'security'> & {
         path?: string;
+        version?: string | false;
         security?: RouteSecurity<S>;
       },
     ) => {
       const routePath = joinPaths(normalizedPrefix, config.path ?? '');
       const routeMiddleware = config.middleware ?? [];
       const routeSecurity = config.security ?? routerSecurity;
+      const routeVersion = config.version ?? routerVersion;
 
       return route({
         ...config,
         middleware: [...routerMiddleware, ...routeMiddleware],
         security: routeSecurity,
+        version: routeVersion,
         path: routePath,
         tags,
       });
@@ -241,6 +294,16 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
   function docs(options: ApiDocsOptions = {}): ApiRouter<S> {
     docsOptions = options;
     return api;
+  }
+
+  function version(versionString: string, options: Omit<CreateRouterOptionsFor<S>, 'path' | 'version'> = {}) {
+    return createRouter({
+      path: '',
+      version: versionString,
+      tags: options.tags,
+      middleware: options.middleware,
+      security: options.security,
+    });
   }
 
   function mount(app: Express): Express {
@@ -280,6 +343,7 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
   const api: ApiRouter<S> = {
     route,
     createRouter,
+    version,
     routes: registerRoutes,
     mount,
     docs,

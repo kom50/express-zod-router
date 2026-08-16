@@ -1,6 +1,11 @@
 import { z, createApiRouter } from '../../src';
 
 const api = createApiRouter({
+  version: {
+    defaultVersion: 'v1',
+    supportedVersions: ['v1', 'v2'],
+    autoTag: true,
+  },
   securitySchemes: {
     bearerAuth: {
       type: 'http',
@@ -24,6 +29,7 @@ api.route({
 });
 
 const todo = api.createRouter({
+  version: 'v1',
   path: '/todos',
   tags: ['Todos'],
   security: ['apiKeyAuth'],
@@ -32,6 +38,7 @@ const todo = api.createRouter({
 todo({
   method: 'get',
   path: '/private',
+  version: 'v2',
   response: z.object({ ok: z.boolean() }),
   handler: async () => ({ ok: true }),
 });
@@ -49,4 +56,14 @@ api.route({
 api.createRouter({
   path: '/bad-router-security',
   security: ['unknownScheme'],
+});
+
+// @ts-expect-error - router version should be string or false
+api.createRouter({
+  path: '/bad-router-version',
+  version: 1,
+});
+
+api.version('v1', {
+  security: ['bearerAuth'],
 });
