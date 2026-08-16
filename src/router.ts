@@ -51,7 +51,10 @@ function normalizeSecurity<S extends SecuritySchemes>(security?: RouteSecurity<S
   });
 }
 
-function unwrapSchemaConfig<T extends ZodType | undefined>(value?: T | RouteSchemaConfig<NonNullable<T>>, fallbackExample?: unknown): { schema?: NonNullable<T>; example?: unknown } {
+function unwrapSchemaConfig<T extends ZodType | undefined>(
+  value?: T | RouteSchemaConfig<NonNullable<T>>,
+  fallbackExample?: unknown,
+): { schema?: NonNullable<T>; example?: unknown } {
   if (value && typeof value === 'object' && 'schema' in value) {
     const config = value as RouteSchemaConfig<NonNullable<T>>;
     return { schema: config.schema, example: config.example };
@@ -60,7 +63,10 @@ function unwrapSchemaConfig<T extends ZodType | undefined>(value?: T | RouteSche
   return { schema: value, example: fallbackExample };
 }
 
-function unwrapResponseConfig<T extends ZodType | undefined>(value?: T | RouteResponseConfig<NonNullable<T>>, fallbackExample?: unknown): { schema?: NonNullable<T>; example?: unknown; description?: string } {
+function unwrapResponseConfig<T extends ZodType | undefined>(
+  value?: T | RouteResponseConfig<NonNullable<T>>,
+  fallbackExample?: unknown,
+): { schema?: NonNullable<T>; example?: unknown; description?: string } {
   if (value && typeof value === 'object' && 'schema' in value) {
     const config = value as RouteResponseConfig<NonNullable<T>>;
     return { schema: config.schema, example: config.example, description: config.description };
@@ -147,10 +153,11 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
     const normalizedSecurity = normalizeSecurity(security);
     const finalOperationId = generateOperationId(method, path, handler as Function, operationId, operationIdStrategy);
     const { schema: requestBodySchema, example: requestBodyExample } = unwrapSchemaConfig(body, bodyExample);
-    const { schema: responseSchema, example: responseExampleFromConfig, description: responseDescriptionFromConfig } = unwrapResponseConfig(
-      response,
-      responseExample,
-    );
+    const {
+      schema: responseSchema,
+      example: responseExampleFromConfig,
+      description: responseDescriptionFromConfig,
+    } = unwrapResponseConfig(response, responseExample);
 
     if (operationIds.has(finalOperationId)) {
       throw new Error(`Duplicate operationId detected: ${finalOperationId}`);

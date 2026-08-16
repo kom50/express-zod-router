@@ -55,11 +55,7 @@ export type TypedRequest<
   P extends ZodType | undefined = undefined,
   Q extends ZodType | undefined = undefined,
 > = Omit<Request, 'body' | 'params' | 'query'> & {
-  body: B extends ZodType
-    ? z.infer<B>
-    : B extends { schema: infer S extends ZodType }
-      ? z.infer<S>
-      : Request['body'];
+  body: B extends ZodType ? z.infer<B> : B extends { schema: infer S extends ZodType } ? z.infer<S> : Request['body'];
   params: P extends ZodType ? z.infer<P> : Request['params'];
   query: Q extends ZodType ? z.infer<Q> : Request['query'];
 };

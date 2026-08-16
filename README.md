@@ -379,13 +379,13 @@ const api = createApiRouter({
 });
 ```
 
-| Option            | Type                                                                            | Description                                                                            |
-| ----------------- | ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| `prefix`          | `string` (optional)                                                             | Prepended to every route path                                                          |
-| `middleware`      | `Middleware[]` (opt)                                                            | Global middleware applied to all routes                                                |
-| `openapi`         | `{ operationId?: { strategy?: 'rest' \| 'handler' \| 'explicit' } }` (optional) | OpenAPI generation options, including operationId strategy                             |
+| Option            | Type                                                                                              | Description                                                                            |
+| ----------------- | ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `prefix`          | `string` (optional)                                                                               | Prepended to every route path                                                          |
+| `middleware`      | `Middleware[]` (opt)                                                                              | Global middleware applied to all routes                                                |
+| `openapi`         | `{ operationId?: { strategy?: 'rest' \| 'handler' \| 'explicit' } }` (optional)                   | OpenAPI generation options, including operationId strategy                             |
 | `version`         | `{ defaultVersion?: ApiVersion, supportedVersions?: ApiVersion[], autoTag?: boolean }` (optional) | Global API versioning defaults and validation                                          |
-| `securitySchemes` | `Record<string, SecuritySchemeObject>` (optional)                               | Registers OpenAPI `components.securitySchemes` and enables typed `security` references |
+| `securitySchemes` | `Record<string, SecuritySchemeObject>` (optional)                                                 | Registers OpenAPI `components.securitySchemes` and enables typed `security` references |
 
 Returns an `ApiRouter` with methods: `route()`, `createRouter()`, `routes()`, `docs()`, `mount()`, `use()`, and `registry`.
 
@@ -406,26 +406,26 @@ api.route({
 
 **Config options:**
 
-| Option                | Type                                                       | Description                                                                                                                                    |
-| --------------------- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `method`              | `"get" \| "post" \| "put" \| "patch" \| "delete"`          | HTTP method                                                                                                                                    |
-| `path`                | `string`                                                   | Route path, e.g. `/users/:id`                                                                                                                  |
-| `operationId`         | `string` (optional)                                        | Manual OpenAPI operation ID override. If omitted, a REST-aware ID is generated automatically                                                   |
-| `summary`             | `string` (optional)                                        | Short label shown in Swagger UI                                                                                                                |
-| `description`         | `string` (optional)                                        | Longer description shown in Swagger UI                                                                                                         |
-| `deprecated`          | `boolean` (optional)                                       | Mark route as deprecated in OpenAPI spec (Phase 2)                                                                                             |
-| `version`             | `ApiVersion \| false` (optional)                           | Route version. Inherits global/router defaults. `false` disables version inheritance for this route. `ApiVersion` is `"2"`, `"10"`, `"v2"`, etc. |
-| `tags`                | `string[]` (optional)                                      | Groups the route in Swagger UI                                                                                                                 |
-| `body`                | `ZodType \| { schema: ZodType; example?: unknown }` (optional) | Validates & types `req.body`. When using the object form, `schema` is required and `example` appears in OpenAPI (Phase 2)                     |
-| `params`              | `ZodType` (optional)                                       | Validates & types `req.params`                                                                                                                 |
-| `query`               | `ZodType` (optional)                                       | Validates & types `req.query` (supports `z.coerce`)                                                                                            |
-| `security`            | `(SecuritySchemeName \| SecurityRequirement)[]` (optional) | Route-level OpenAPI security metadata. Example: `['bearerAuth']` or `[{ oauth2: ['users:read'] }]`                                             |
-| `response`            | `ZodType \| { schema: ZodType; description?: string; example?: unknown }` (optional) | **Single-response shorthand** — validates the return value, documents it under `status`                                                        |
-| `status`              | `number` (optional)                                        | Status code used with `response`. Defaults to `200`                                                                                            |
-| `responseDescription` | `string` (optional)                                        | Swagger description used with `response`. Defaults to `"Success"`                                                                              |
-| `responses`           | `Record<number, ResponseConfig>` (optional)                | **Multi-response map** — declare every status code the route can return (see below). Takes priority over `response`/`status` for documentation |
-| `openapi`             | `OpenApiOperationOverrides` (optional)                     | Custom OpenAPI operation metadata (summary, tags, externalDocs, etc.). Merged with auto-generated content (Phase 2)                            |
-| `handler`             | `(req, res) => any`                                        | Return the payload directly, or call `res.send()`/`res.json()` yourself                                                                        |
+| Option                | Type                                                                                 | Description                                                                                                                                      |
+| --------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `method`              | `"get" \| "post" \| "put" \| "patch" \| "delete"`                                    | HTTP method                                                                                                                                      |
+| `path`                | `string`                                                                             | Route path, e.g. `/users/:id`                                                                                                                    |
+| `operationId`         | `string` (optional)                                                                  | Manual OpenAPI operation ID override. If omitted, a REST-aware ID is generated automatically                                                     |
+| `summary`             | `string` (optional)                                                                  | Short label shown in Swagger UI                                                                                                                  |
+| `description`         | `string` (optional)                                                                  | Longer description shown in Swagger UI                                                                                                           |
+| `deprecated`          | `boolean` (optional)                                                                 | Mark route as deprecated in OpenAPI spec (Phase 2)                                                                                               |
+| `version`             | `ApiVersion \| false` (optional)                                                     | Route version. Inherits global/router defaults. `false` disables version inheritance for this route. `ApiVersion` is `"2"`, `"10"`, `"v2"`, etc. |
+| `tags`                | `string[]` (optional)                                                                | Groups the route in Swagger UI                                                                                                                   |
+| `body`                | `ZodType \| { schema: ZodType; example?: unknown }` (optional)                       | Validates & types `req.body`. When using the object form, `schema` is required and `example` appears in OpenAPI (Phase 2)                        |
+| `params`              | `ZodType` (optional)                                                                 | Validates & types `req.params`                                                                                                                   |
+| `query`               | `ZodType` (optional)                                                                 | Validates & types `req.query` (supports `z.coerce`)                                                                                              |
+| `security`            | `(SecuritySchemeName \| SecurityRequirement)[]` (optional)                           | Route-level OpenAPI security metadata. Example: `['bearerAuth']` or `[{ oauth2: ['users:read'] }]`                                               |
+| `response`            | `ZodType \| { schema: ZodType; description?: string; example?: unknown }` (optional) | **Single-response shorthand** — validates the return value, documents it under `status`                                                          |
+| `status`              | `number` (optional)                                                                  | Status code used with `response`. Defaults to `200`                                                                                              |
+| `responseDescription` | `string` (optional)                                                                  | Swagger description used with `response`. Defaults to `"Success"`                                                                                |
+| `responses`           | `Record<number, ResponseConfig>` (optional)                                          | **Multi-response map** — declare every status code the route can return (see below). Takes priority over `response`/`status` for documentation   |
+| `openapi`             | `OpenApiOperationOverrides` (optional)                                               | Custom OpenAPI operation metadata (summary, tags, externalDocs, etc.). Merged with auto-generated content (Phase 2)                              |
+| `handler`             | `(req, res) => any`                                                                  | Return the payload directly, or call `res.send()`/`res.json()` yourself                                                                          |
 
 Returns the `ApiRouter` instance, so calls can be chained.
 
