@@ -407,10 +407,7 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
         Q extends ZodType | undefined = undefined,
         R extends ZodType | undefined = undefined,
         Rs extends Record<number, ResponseConfig> | undefined = undefined,
-      >(
-        path: string,
-        config: ScopedRouterConvenienceConfig<S, B, P, Q, R, Rs>,
-      ): ApiRouter<S> {
+      >(path: string, config: ScopedRouterConvenienceConfig<S, B, P, Q, R, Rs>): ApiRouter<S> {
         const routePath = joinPaths(normalizedPrefix, path);
         const routeMiddleware = config.middleware ?? [];
         const routeSecurity = config.security ?? routerSecurity;
