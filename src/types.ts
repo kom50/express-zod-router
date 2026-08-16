@@ -185,6 +185,13 @@ export interface CreateRouterOptions {
   tags?: string[];
   middleware?: Middleware[];
   security?: RouteSecurity;
+  deprecated?: boolean;
+  summary?: string;
+  description?: string;
+  externalDocs?: {
+    url: string;
+    description?: string;
+  };
 }
 
 export type CreateRouterOptionsFor<S extends AnySecuritySchemes = AnySecuritySchemes> = Omit<CreateRouterOptions, 'security'> & {

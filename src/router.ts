@@ -79,6 +79,7 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
   const versionConfig = options.version;
   const normalizedSupportedVersions = versionConfig?.supportedVersions?.map((version) => normalizeVersion(version));
   let docsOptions: ApiDocsOptions | undefined;
+  const tagDescriptions = new Map<string, { description?: string; externalDocs?: { url: string; description?: string } }>();
 
   function normalizeVersion(version: string): string {
     const trimmedVersion = version.trim();
@@ -269,6 +270,7 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
     let tags: string[];
     let initialMiddleware: Middleware[];
     let initialSecurity: RouteSecurity<S> | undefined;
+    let routerDeprecated: boolean | undefined;
 
     if (typeof prefixOrOptions === 'string') {
       routerPrefix = prefixOrOptions;
@@ -276,12 +278,24 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
       tags = routerTags;
       initialMiddleware = [];
       initialSecurity = undefined;
+      routerDeprecated = undefined;
     } else {
       routerPrefix = prefixOrOptions.path;
       routerVersion = prefixOrOptions.version;
       tags = prefixOrOptions.tags ?? [];
       initialMiddleware = prefixOrOptions.middleware ?? [];
       initialSecurity = prefixOrOptions.security;
+      routerDeprecated = prefixOrOptions.deprecated;
+
+      // Register tag-level description/externalDocs for Swagger group header
+      if (prefixOrOptions.description || prefixOrOptions.externalDocs) {
+        for (const tag of prefixOrOptions.tags ?? []) {
+          tagDescriptions.set(tag, {
+            ...(prefixOrOptions.description ? { description: prefixOrOptions.description } : {}),
+            ...(prefixOrOptions.externalDocs ? { externalDocs: prefixOrOptions.externalDocs } : {}),
+          });
+        }
+      }
     }
 
     const normalizedPrefix = normalizePrefix(routerPrefix);
@@ -319,6 +333,7 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
 
       return route({
         ...config,
+        ...(routerDeprecated !== undefined && config.deprecated === undefined ? { deprecated: routerDeprecated } : {}),
         middleware: [...routerMiddleware, ...routeMiddleware],
         security: routeSecurity,
         version: routeVersion,
@@ -383,6 +398,18 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
             ...existingSecuritySchemes,
           },
         };
+      }
+
+      // Inject tag descriptions into top-level tags array
+      if (tagDescriptions.size > 0) {
+        const existingTags = Array.isArray(mergedOpenApi.tags) ? (mergedOpenApi.tags as Array<Record<string, unknown>>) : [];
+        const existingTagNames = new Set(existingTags.map((t) => t.name));
+        for (const [name, meta] of tagDescriptions) {
+          if (!existingTagNames.has(name)) {
+            existingTags.push({ name, ...meta });
+          }
+        }
+        mergedOpenApi.tags = existingTags;
       }
 
       mountDocs(app, { ...docsOptions, openapi: mergedOpenApi }, registry);

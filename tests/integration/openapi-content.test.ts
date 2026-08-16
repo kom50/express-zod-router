@@ -2,6 +2,8 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { z } from 'zod';
 import { createApiRouter } from '../../src';
 import { OpenApiGeneratorV3 } from '@asteasolutions/zod-to-openapi';
+import express from 'express';
+import request from 'supertest';
 
 describe('Phase 2: OpenAPI Content Metadata', () => {
   let spec: any;
@@ -168,5 +170,49 @@ describe('Phase 2: OpenAPI Content Metadata', () => {
   it('should preserve description with deprecated flag', () => {
     const deprecatedPath = spec.paths['/users/old-endpoint']?.get;
     expect(deprecatedPath?.description).toBe('Old endpoint - deprecated');
+  });
+
+  it('should register router-level description and externalDocs on tags', async () => {
+    const app = express();
+    const router = createApiRouter();
+    const users = router.createRouter({
+      path: '/users',
+      tags: ['Users'],
+      description: 'Endpoints for managing users',
+      externalDocs: {
+        url: 'https://example.com/docs/users',
+        description: 'Users API docs',
+      },
+    });
+
+    users({
+      method: 'get',
+      path: '/:id',
+      params: z.object({ id: z.string() }),
+      response: z.object({ id: z.string() }),
+      handler: (req) => ({ id: req.params.id }),
+    });
+
+    router.docs({
+      info: {
+        title: 'Tag Metadata API',
+        version: '1.0.0',
+      },
+      servers: [{ url: '/' }],
+    });
+    router.mount(app);
+
+    const res = await request(app).get('/api-docs.json');
+    expect(res.status).toBe(200);
+
+    const usersTag = res.body.tags?.find((tag: { name: string }) => tag.name === 'Users');
+    expect(usersTag).toEqual({
+      name: 'Users',
+      description: 'Endpoints for managing users',
+      externalDocs: {
+        url: 'https://example.com/docs/users',
+        description: 'Users API docs',
+      },
+    });
   });
 });
