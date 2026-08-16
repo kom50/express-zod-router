@@ -373,12 +373,12 @@ const api = createApiRouter({
 });
 ```
 
-| Option            | Type                                              | Description                                                                            |
-| ----------------- | ------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| `prefix`          | `string` (optional)                               | Prepended to every route path                                                          |
-| `middleware`      | `Middleware[]` (opt)                              | Global middleware applied to all routes                                                |
-| `version`         | `{ defaultVersion?, supportedVersions?, autoTag? }` (optional) | Global API versioning defaults and validation                                           |
-| `securitySchemes` | `Record<string, SecuritySchemeObject>` (optional) | Registers OpenAPI `components.securitySchemes` and enables typed `security` references |
+| Option            | Type                                                           | Description                                                                            |
+| ----------------- | -------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `prefix`          | `string` (optional)                                            | Prepended to every route path                                                          |
+| `middleware`      | `Middleware[]` (opt)                                           | Global middleware applied to all routes                                                |
+| `version`         | `{ defaultVersion?, supportedVersions?, autoTag? }` (optional) | Global API versioning defaults and validation                                          |
+| `securitySchemes` | `Record<string, SecuritySchemeObject>` (optional)              | Registers OpenAPI `components.securitySchemes` and enables typed `security` references |
 
 Returns an `ApiRouter` with methods: `route()`, `createRouter()`, `routes()`, `docs()`, `mount()`, `use()`, and `registry`.
 
@@ -403,9 +403,10 @@ api.route({
 | --------------------- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | `method`              | `"get" \| "post" \| "put" \| "patch" \| "delete"`          | HTTP method                                                                                                                                    |
 | `path`                | `string`                                                   | Route path, e.g. `/users/:id`                                                                                                                  |
+| `operationId`         | `string` (optional)                                        | Manual OpenAPI operation ID override. If omitted, a REST-aware ID is generated automatically                                                   |
 | `summary`             | `string` (optional)                                        | Short label shown in Swagger UI                                                                                                                |
 | `description`         | `string` (optional)                                        | Longer description shown in Swagger UI                                                                                                         |
-| `version`             | `string \| false` (optional)                               | Route version. Inherits global/router defaults. `false` disables version inheritance for this route                                           |
+| `version`             | `string \| false` (optional)                               | Route version. Inherits global/router defaults. `false` disables version inheritance for this route                                            |
 | `tags`                | `string[]` (optional)                                      | Groups the route in Swagger UI                                                                                                                 |
 | `body`                | `ZodType` (optional)                                       | Validates & types `req.body`                                                                                                                   |
 | `params`              | `ZodType` (optional)                                       | Validates & types `req.params`                                                                                                                 |
@@ -418,6 +419,36 @@ api.route({
 | `handler`             | `(req, res) => any`                                        | Return the payload directly, or call `res.send()`/`res.json()` yourself                                                                        |
 
 Returns the `ApiRouter` instance, so calls can be chained.
+
+### Automatic `operationId`
+
+`express-zod-router` generates REST-aware, deterministic operation IDs automatically.
+
+Examples:
+
+- `GET /users` → `listUsers`
+- `GET /users/:id` → `getUser`
+- `POST /users` → `createUser`
+- `PUT /users/:id` → `replaceUser`
+- `PATCH /users/:id` → `updateUser`
+- `DELETE /users/:id` → `deleteUser`
+- `GET /users/:id/posts` → `listUserPosts`
+- `POST /users/:id/posts` → `createUserPost`
+- `GET /users/:id/posts/:postId` → `getUserPost`
+
+You can override it manually:
+
+```ts
+api.route({
+  method: 'get',
+  path: '/users/:id',
+  operationId: 'fetchUserById',
+  response: UserSchema,
+  handler: getUser,
+});
+```
+
+Duplicate `operationId` values are rejected during registration so the generated spec stays valid.
 
 ---
 
