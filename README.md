@@ -358,6 +358,11 @@ Creates a router instance with its own OpenAPI registry and optional global midd
 const api = createApiRouter({
   prefix: '/api', // optional
   middleware: [requestId(), logger()], // optional
+  version: {
+    defaultVersion: 'v1',
+    supportedVersions: ['v1', 'v2'],
+    autoTag: true,
+  },
   securitySchemes: {
     bearerAuth: {
       type: 'http',
@@ -372,6 +377,7 @@ const api = createApiRouter({
 | ----------------- | ------------------------------------------------- | -------------------------------------------------------------------------------------- |
 | `prefix`          | `string` (optional)                               | Prepended to every route path                                                          |
 | `middleware`      | `Middleware[]` (opt)                              | Global middleware applied to all routes                                                |
+| `version`         | `{ defaultVersion?, supportedVersions?, autoTag? }` (optional) | Global API versioning defaults and validation                                           |
 | `securitySchemes` | `Record<string, SecuritySchemeObject>` (optional) | Registers OpenAPI `components.securitySchemes` and enables typed `security` references |
 
 Returns an `ApiRouter` with methods: `route()`, `createRouter()`, `routes()`, `docs()`, `mount()`, `use()`, and `registry`.
@@ -399,6 +405,7 @@ api.route({
 | `path`                | `string`                                                   | Route path, e.g. `/users/:id`                                                                                                                  |
 | `summary`             | `string` (optional)                                        | Short label shown in Swagger UI                                                                                                                |
 | `description`         | `string` (optional)                                        | Longer description shown in Swagger UI                                                                                                         |
+| `version`             | `string \| false` (optional)                               | Route version. Inherits global/router defaults. `false` disables version inheritance for this route                                           |
 | `tags`                | `string[]` (optional)                                      | Groups the route in Swagger UI                                                                                                                 |
 | `body`                | `ZodType` (optional)                                       | Validates & types `req.body`                                                                                                                   |
 | `params`              | `ZodType` (optional)                                       | Validates & types `req.params`                                                                                                                 |
@@ -433,6 +440,7 @@ You can also pass router-level middleware and security defaults:
 
 ```ts
 const todo = api.createRouter({
+  version: 'v1',
   path: '/todos',
   tags: ['Todos'],
   security: ['bearerAuth'],
@@ -448,11 +456,40 @@ todo({
 todo({
   method: 'get',
   path: '/public',
+  version: false,
   security: [],
   response: z.object({ ok: z.boolean() }),
   handler: () => ({ ok: true }),
 });
 ```
+
+`createRouter(options)` also supports:
+
+- `version: string | false`
+  - Use `version: 'v2'` (or `'2'`) to mount under that version prefix.
+  - Use `version: false` to disable inherited versioning for this router.
+
+---
+
+### `api.version(version, options?)`
+
+Convenience helper that creates a scoped router bound to a version.
+
+```ts
+const v1 = api.version('v1', {
+  tags: ['Users'],
+  security: ['bearerAuth'],
+});
+
+v1({
+  method: 'get',
+  path: '/profile',
+  response: z.object({ ok: z.boolean() }),
+  handler: async () => ({ ok: true }),
+});
+```
+
+With `prefix: '/api'`, this route resolves to `/api/v1/profile`.
 
 ---
 

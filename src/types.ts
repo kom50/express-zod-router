@@ -42,6 +42,12 @@ export type SecurityReference<S extends AnySecuritySchemes = AnySecuritySchemes>
 
 export type RouteSecurity<S extends AnySecuritySchemes = AnySecuritySchemes> = SecurityReference<S>[];
 
+export interface VersionConfig {
+  defaultVersion?: string;
+  supportedVersions?: string[];
+  autoTag?: boolean;
+}
+
 export type TypedRequest<
   B extends ZodType | undefined = undefined,
   P extends ZodType | undefined = undefined,
@@ -84,6 +90,7 @@ export interface RouteConfig<
   path: string;
   summary?: string;
   description?: string;
+  version?: string | false;
   tags?: string[];
   body?: B;
   params?: P;
@@ -134,6 +141,7 @@ export interface RouteConfig<
  */
 export interface CreateRouterOptions {
   path: string;
+  version?: string | false;
   tags?: string[];
   middleware?: Middleware[];
   security?: RouteSecurity;
@@ -169,6 +177,7 @@ export interface ApiRouter<S extends AnySecuritySchemes = AnySecuritySchemes> {
   ) => ApiRouter<S>;
 
   createRouter: ((prefix: string, tags?: string[]) => ScopedRouter<S>) & ((options: CreateRouterOptionsFor<S>) => ScopedRouter<S>);
+  version: (versionString: string, options?: Omit<CreateRouterOptionsFor<S>, 'path' | 'version'>) => ScopedRouter<S>;
 
   routes: (modules: ApiRouteModule<S>[]) => ApiRouter<S>;
   mount: (app: import('express').Express) => import('express').Express;
