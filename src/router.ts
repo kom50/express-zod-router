@@ -4,8 +4,9 @@ import type { ZodType } from 'zod';
 
 import { handleRouteError } from './errors';
 import type { ApiDocsOptions } from './docs';
-import { convertExpressPath, generateOperationId, joinPaths, normalizePrefix } from './helpers';
+import { convertExpressPath, joinPaths, normalizePrefix } from './helpers';
 import { chainMiddleware } from './middleware';
+import { generateOperationId } from './operation-id';
 import { buildOpenApiResponses, defaultValidationErrorResponse, mountDocs } from './openapi';
 import type {
   ApiRouteModule,
@@ -26,6 +27,11 @@ export interface CreateApiRouterOptions<S extends SecuritySchemes = SecuritySche
   middleware?: Middleware[];
   securitySchemes?: S;
   version?: VersionConfig;
+  openapi?: {
+    operationId?: {
+      strategy?: 'rest' | 'handler' | 'explicit';
+    };
+  };
 }
 
 function normalizeSecurity<S extends SecuritySchemes>(security?: RouteSecurity<S>): OpenApiSecurityRequirement[] | undefined {
@@ -49,6 +55,7 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
   const globalMiddleware: Middleware[] = [...(options.middleware ?? [])];
   const prefix = normalizePrefix(options.prefix);
   const securitySchemes = options.securitySchemes;
+  const operationIdStrategy = options.openapi?.operationId?.strategy ?? 'rest';
   const versionConfig = options.version;
   const normalizedSupportedVersions = versionConfig?.supportedVersions?.map((version) => normalizeVersion(version));
   let docsOptions: ApiDocsOptions | undefined;
@@ -112,7 +119,7 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
     const basePath = resolvedVersion ? joinPaths(prefix, `/${resolvedVersion}`) : prefix;
     const fullPath = joinPaths(basePath, path);
     const normalizedSecurity = normalizeSecurity(security);
-    const finalOperationId = operationId ?? generateOperationId(method, path);
+    const finalOperationId = generateOperationId(method, path, handler as Function, operationId, operationIdStrategy);
 
     if (operationIds.has(finalOperationId)) {
       throw new Error(`Duplicate operationId detected: ${finalOperationId}`);

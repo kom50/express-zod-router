@@ -358,6 +358,11 @@ Creates a router instance with its own OpenAPI registry and optional global midd
 const api = createApiRouter({
   prefix: '/api', // optional
   middleware: [requestId(), logger()], // optional
+  openapi: {
+    operationId: {
+      strategy: 'rest', // 'rest' | 'handler' | 'explicit'
+    },
+  },
   version: {
     defaultVersion: 'v1',
     supportedVersions: ['v1', 'v2'],
@@ -377,6 +382,7 @@ const api = createApiRouter({
 | ----------------- | -------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
 | `prefix`          | `string` (optional)                                            | Prepended to every route path                                                          |
 | `middleware`      | `Middleware[]` (opt)                                           | Global middleware applied to all routes                                                |
+| `openapi`         | `{ operationId?: { strategy?: 'rest' \| 'handler' \| 'explicit' } }` (optional) | OpenAPI generation options, including operationId strategy                             |
 | `version`         | `{ defaultVersion?, supportedVersions?, autoTag? }` (optional) | Global API versioning defaults and validation                                          |
 | `securitySchemes` | `Record<string, SecuritySchemeObject>` (optional)              | Registers OpenAPI `components.securitySchemes` and enables typed `security` references |
 
@@ -449,6 +455,22 @@ api.route({
 ```
 
 Duplicate `operationId` values are rejected during registration so the generated spec stays valid.
+
+You can configure the global operation ID strategy:
+
+```ts
+const api = createApiRouter({
+  openapi: {
+    operationId: {
+      strategy: 'rest', // default
+    },
+  },
+});
+```
+
+- `rest` (default): derives IDs from method + path (contract-first)
+- `handler`: uses handler function name when available; falls back to REST naming
+- `explicit`: requires every route to set `operationId`
 
 ---
 
