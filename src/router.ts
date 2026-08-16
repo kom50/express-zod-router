@@ -7,7 +7,7 @@ import type { ApiDocsOptions } from './docs';
 import { convertExpressPath, joinPaths, normalizePrefix } from './helpers';
 import { chainMiddleware } from './middleware';
 import { generateOperationId } from './operation-id';
-import { buildOpenApiResponses, defaultValidationErrorResponse, mountDocs } from './openapi';
+import { buildOpenApiRequestBody, buildOpenApiResponses, defaultValidationErrorResponse, mergeOpenApiOperation, mountDocs } from './openapi';
 import type {
   ApiRouteModule,
   ApiRouter,
@@ -15,6 +15,8 @@ import type {
   Middleware,
   OpenApiSecurityRequirement,
   ResponseConfig,
+  RouteResponseConfig,
+  RouteSchemaConfig,
   RouteConfig,
   RouteSecurity,
   SecuritySchemes,
@@ -48,6 +50,24 @@ function normalizeSecurity<S extends SecuritySchemes>(security?: RouteSecurity<S
   });
 }
 
+function unwrapSchemaConfig<T extends ZodType | undefined>(value?: T | RouteSchemaConfig<NonNullable<T>>, fallbackExample?: unknown): { schema?: NonNullable<T>; example?: unknown } {
+  if (value && typeof value === 'object' && 'schema' in value) {
+    const config = value as RouteSchemaConfig<NonNullable<T>>;
+    return { schema: config.schema, example: config.example };
+  }
+
+  return { schema: value, example: fallbackExample };
+}
+
+function unwrapResponseConfig<T extends ZodType | undefined>(value?: T | RouteResponseConfig<NonNullable<T>>, fallbackExample?: unknown): { schema?: NonNullable<T>; example?: unknown; description?: string } {
+  if (value && typeof value === 'object' && 'schema' in value) {
+    const config = value as RouteResponseConfig<NonNullable<T>>;
+    return { schema: config.schema, example: config.example, description: config.description };
+  }
+
+  return { schema: value, example: fallbackExample, description: undefined };
+}
+
 export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(options: CreateApiRouterOptions<S> = {}): ApiRouter<S> {
   const registry = new OpenAPIRegistry();
   const registeredRoutes: RegisteredRoute[] = [];
@@ -59,6 +79,7 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
   const versionConfig = options.version;
   const normalizedSupportedVersions = versionConfig?.supportedVersions?.map((version) => normalizeVersion(version));
   let docsOptions: ApiDocsOptions | undefined;
+  const tagDescriptions = new Map<string, { description?: string; externalDocs?: { url: string; description?: string } }>();
 
   function normalizeVersion(version: string): string {
     const trimmedVersion = version.trim();
@@ -101,14 +122,18 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
       operationId,
       summary,
       description,
+      deprecated,
       version,
       tags,
       body,
+      bodyExample,
       params,
       query,
       security,
+      openapi,
       middleware = [],
       response,
+      responseExample,
       responses,
       status = 200,
       responseDescription = 'Success',
@@ -120,6 +145,11 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
     const fullPath = joinPaths(basePath, path);
     const normalizedSecurity = normalizeSecurity(security);
     const finalOperationId = generateOperationId(method, path, handler as Function, operationId, operationIdStrategy);
+    const { schema: requestBodySchema, example: requestBodyExample } = unwrapSchemaConfig(body, bodyExample);
+    const { schema: responseSchema, example: responseExampleFromConfig, description: responseDescriptionFromConfig } = unwrapResponseConfig(
+      response,
+      responseExample,
+    );
 
     if (operationIds.has(finalOperationId)) {
       throw new Error(`Duplicate operationId detected: ${finalOperationId}`);
@@ -137,31 +167,37 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
       return withVersionTag;
     })();
 
+    const operation = mergeOpenApiOperation(
+      {
+        operationId: finalOperationId,
+        ...(summary && { summary }),
+        ...(description && { description }),
+        ...(routeTags && { tags: routeTags }),
+        ...(normalizedSecurity && { security: normalizedSecurity }),
+        ...(deprecated !== undefined && { deprecated }),
+      },
+      openapi,
+      deprecated,
+    );
+
+    const requestBodyConfig = buildOpenApiRequestBody(requestBodySchema, requestBodyExample);
+
     registry.registerPath({
       method,
       path: convertExpressPath(fullPath),
-      operationId: finalOperationId,
-      ...(summary && { summary }),
-      ...(description && { description }),
-      ...(routeTags && { tags: routeTags }),
-      ...(normalizedSecurity && { security: normalizedSecurity }),
       request: {
-        ...(body && {
-          body: {
-            content: {
-              'application/json': { schema: body },
-            },
-          },
-        }),
+        ...(requestBodyConfig && { body: requestBodyConfig }),
         ...(params && { params }),
         ...(query && { query }),
       } as NonNullable<Parameters<typeof registry.registerPath>[0]['request']>,
+      ...operation,
       responses: {
         ...buildOpenApiResponses({
-          response,
+          response: responseSchema,
+          responseExample: responseExampleFromConfig,
           responses,
           status,
-          responseDescription,
+          responseDescription: responseDescriptionFromConfig ?? responseDescription,
         }),
         400: defaultValidationErrorResponse,
       },
@@ -169,7 +205,7 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
 
     const coreHandler: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
       try {
-        if (body) req.body = body.parse(req.body);
+        if (requestBodySchema) req.body = requestBodySchema.parse(req.body);
         if (params) req.params = params.parse(req.params) as typeof req.params;
 
         let handlerReq = req;
@@ -202,8 +238,8 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
           rawBody = result;
         }
 
-        const responseSchema = responses ? responses[responseStatus]?.schema : response;
-        const payload = responseSchema ? responseSchema.parse(rawBody) : rawBody;
+        const responseValidationSchema = responses ? responses[responseStatus]?.schema : responseSchema;
+        const payload = responseValidationSchema ? responseValidationSchema.parse(rawBody) : rawBody;
 
         if (responseStatus === 204) {
           res.status(204).send();
@@ -234,6 +270,7 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
     let tags: string[];
     let initialMiddleware: Middleware[];
     let initialSecurity: RouteSecurity<S> | undefined;
+    let routerDeprecated: boolean | undefined;
 
     if (typeof prefixOrOptions === 'string') {
       routerPrefix = prefixOrOptions;
@@ -241,12 +278,24 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
       tags = routerTags;
       initialMiddleware = [];
       initialSecurity = undefined;
+      routerDeprecated = undefined;
     } else {
       routerPrefix = prefixOrOptions.path;
       routerVersion = prefixOrOptions.version;
       tags = prefixOrOptions.tags ?? [];
       initialMiddleware = prefixOrOptions.middleware ?? [];
       initialSecurity = prefixOrOptions.security;
+      routerDeprecated = prefixOrOptions.deprecated;
+
+      // Register tag-level description/externalDocs for Swagger group header
+      if (prefixOrOptions.description || prefixOrOptions.externalDocs) {
+        for (const tag of prefixOrOptions.tags ?? []) {
+          tagDescriptions.set(tag, {
+            ...(prefixOrOptions.description ? { description: prefixOrOptions.description } : {}),
+            ...(prefixOrOptions.externalDocs ? { externalDocs: prefixOrOptions.externalDocs } : {}),
+          });
+        }
+      }
     }
 
     const normalizedPrefix = normalizePrefix(routerPrefix);
@@ -284,6 +333,7 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
 
       return route({
         ...config,
+        ...(routerDeprecated !== undefined && config.deprecated === undefined ? { deprecated: routerDeprecated } : {}),
         middleware: [...routerMiddleware, ...routeMiddleware],
         security: routeSecurity,
         version: routeVersion,
@@ -348,6 +398,18 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
             ...existingSecuritySchemes,
           },
         };
+      }
+
+      // Inject tag descriptions into top-level tags array
+      if (tagDescriptions.size > 0) {
+        const existingTags = Array.isArray(mergedOpenApi.tags) ? (mergedOpenApi.tags as Array<Record<string, unknown>>) : [];
+        const existingTagNames = new Set(existingTags.map((t) => t.name));
+        for (const [name, meta] of tagDescriptions) {
+          if (!existingTagNames.has(name)) {
+            existingTags.push({ name, ...meta });
+          }
+        }
+        mergedOpenApi.tags = existingTags;
       }
 
       mountDocs(app, { ...docsOptions, openapi: mergedOpenApi }, registry);

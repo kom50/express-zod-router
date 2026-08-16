@@ -1,7 +1,8 @@
 # express-zod-router
 
 > **Declare once, validate everywhere.**
-> A FastAPI-style routing layer for Express that eliminates boilerplate by using Zod schemas as a single source of truth for validation, types, and API documentation.
+
+A FastAPI-style routing layer for Express that eliminates boilerplate by using Zod schemas as a single source of truth for validation, types, and API documentation.
 
 ## The Problem
 
@@ -378,13 +379,13 @@ const api = createApiRouter({
 });
 ```
 
-| Option            | Type                                                           | Description                                                                            |
-| ----------------- | -------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| `prefix`          | `string` (optional)                                            | Prepended to every route path                                                          |
-| `middleware`      | `Middleware[]` (opt)                                           | Global middleware applied to all routes                                                |
+| Option            | Type                                                                            | Description                                                                            |
+| ----------------- | ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `prefix`          | `string` (optional)                                                             | Prepended to every route path                                                          |
+| `middleware`      | `Middleware[]` (opt)                                                            | Global middleware applied to all routes                                                |
 | `openapi`         | `{ operationId?: { strategy?: 'rest' \| 'handler' \| 'explicit' } }` (optional) | OpenAPI generation options, including operationId strategy                             |
-| `version`         | `{ defaultVersion?, supportedVersions?, autoTag? }` (optional) | Global API versioning defaults and validation                                          |
-| `securitySchemes` | `Record<string, SecuritySchemeObject>` (optional)              | Registers OpenAPI `components.securitySchemes` and enables typed `security` references |
+| `version`         | `{ defaultVersion?, supportedVersions?, autoTag? }` (optional)                  | Global API versioning defaults and validation                                          |
+| `securitySchemes` | `Record<string, SecuritySchemeObject>` (optional)                               | Registers OpenAPI `components.securitySchemes` and enables typed `security` references |
 
 Returns an `ApiRouter` with methods: `route()`, `createRouter()`, `routes()`, `docs()`, `mount()`, `use()`, and `registry`.
 
@@ -412,16 +413,18 @@ api.route({
 | `operationId`         | `string` (optional)                                        | Manual OpenAPI operation ID override. If omitted, a REST-aware ID is generated automatically                                                   |
 | `summary`             | `string` (optional)                                        | Short label shown in Swagger UI                                                                                                                |
 | `description`         | `string` (optional)                                        | Longer description shown in Swagger UI                                                                                                         |
+| `deprecated`          | `boolean` (optional)                                       | Mark route as deprecated in OpenAPI spec (Phase 2)                                                                                             |
 | `version`             | `string \| false` (optional)                               | Route version. Inherits global/router defaults. `false` disables version inheritance for this route                                            |
 | `tags`                | `string[]` (optional)                                      | Groups the route in Swagger UI                                                                                                                 |
-| `body`                | `ZodType` (optional)                                       | Validates & types `req.body`                                                                                                                   |
+| `body`                | `ZodType \| { schema: ZodType; example?: unknown }` (optional) | Validates & types `req.body`. When using the object form, `schema` is required and `example` appears in OpenAPI (Phase 2)                     |
 | `params`              | `ZodType` (optional)                                       | Validates & types `req.params`                                                                                                                 |
 | `query`               | `ZodType` (optional)                                       | Validates & types `req.query` (supports `z.coerce`)                                                                                            |
 | `security`            | `(SecuritySchemeName \| SecurityRequirement)[]` (optional) | Route-level OpenAPI security metadata. Example: `['bearerAuth']` or `[{ oauth2: ['users:read'] }]`                                             |
-| `response`            | `ZodType` (optional)                                       | **Single-response shorthand** — validates the return value, documents it under `status`                                                        |
+| `response`            | `ZodType \| { schema: ZodType; description?: string; example?: unknown }` (optional) | **Single-response shorthand** — validates the return value, documents it under `status`                                                        |
 | `status`              | `number` (optional)                                        | Status code used with `response`. Defaults to `200`                                                                                            |
 | `responseDescription` | `string` (optional)                                        | Swagger description used with `response`. Defaults to `"Success"`                                                                              |
 | `responses`           | `Record<number, ResponseConfig>` (optional)                | **Multi-response map** — declare every status code the route can return (see below). Takes priority over `response`/`status` for documentation |
+| `openapi`             | `OpenApiOperationOverrides` (optional)                     | Custom OpenAPI operation metadata (summary, tags, externalDocs, etc.). Merged with auto-generated content (Phase 2)                            |
 | `handler`             | `(req, res) => any`                                        | Return the payload directly, or call `res.send()`/`res.json()` yourself                                                                        |
 
 Returns the `ApiRouter` instance, so calls can be chained.
@@ -474,6 +477,101 @@ const api = createApiRouter({
 
 ---
 
+### OpenAPI Metadata (Phase 2)
+
+#### Deprecated
+
+Mark routes as deprecated in the OpenAPI spec:
+
+```ts
+api.route({
+  method: 'get',
+  path: '/users/old-endpoint',
+  description: 'Old endpoint - use /users/v2 instead',
+  deprecated: true,
+  response: UserSchema.array(),
+  handler: (req, res) => {
+    res.json([]);
+  },
+});
+```
+
+The `deprecated: true` flag appears in the OpenAPI spec, warning API consumers via Swagger UI.
+
+#### Request & Response Examples
+
+Add realistic examples to requests/responses for better API documentation:
+
+```ts
+// Request example
+api.route({
+  method: 'post',
+  path: '/users',
+  body: {
+    schema: z.object({
+      name: z.string(),
+      email: z.string().email(),
+    }),
+    example: {
+      name: 'John Doe',
+      email: 'john@example.com',
+    },
+  },
+  response: UserSchema,
+  handler: (req, res) => {
+    res.json({ id: 1, ...req.body });
+  },
+});
+
+// Response example
+api.route({
+  method: 'get',
+  path: '/users/:id',
+  params: z.object({ id: z.coerce.number() }),
+  response: {
+    schema: UserSchema,
+    example: {
+      id: 1,
+      name: 'Jane Smith',
+      email: 'jane@example.com',
+    },
+  },
+  handler: (req, res) => {
+    res.json({ id: req.params.id, name: 'Jane', email: 'jane@example.com' });
+  },
+});
+```
+
+Examples appear in Swagger UI's "Example Value" sections, helping developers understand expected formats.
+
+#### Custom OpenAPI Overrides
+
+Fine-tune OpenAPI operation metadata beyond what config sugar provides:
+
+```ts
+api.route({
+  method: 'get',
+  path: '/users/search',
+  query: z.object({ q: z.string() }),
+  response: UserSchema.array(),
+  openapi: {
+    summary: 'Custom Summary Override',
+    tags: ['search', 'users'], // merge with route tags
+    externalDocs: {
+      url: 'https://example.com/api/search',
+      description: 'Learn more about user search',
+    },
+  },
+  handler: (req, res) => {
+    res.json([]);
+  },
+});
+```
+
+The `openapi` field supports any OpenAPI operation metadata (summary, tags, externalDocs, etc.). Values are merged with auto-generated content.
+
+---
+
 ### `api.createRouter(prefix, tags?)` / `api.createRouter(options)`
 
 Returns a scoped route-registration function with a path prefix and default tags
@@ -497,6 +595,12 @@ const todo = api.createRouter({
   path: '/todos',
   tags: ['Todos'],
   security: ['bearerAuth'],
+  deprecated: true,
+  description: 'Todo endpoints',
+  externalDocs: {
+    url: 'https://example.com/docs/todos',
+    description: 'Todo API docs',
+  },
 });
 
 todo({
@@ -521,6 +625,40 @@ todo({
 - `version: string | false`
   - Use `version: 'v2'` (or `'2'`) to mount under that version prefix.
   - Use `version: false` to disable inherited versioning for this router.
+- `deprecated: boolean`
+  - Inherited by routes in this scoped router unless route-level `deprecated` is explicitly set.
+- `description: string`
+  - Applied to the OpenAPI tag metadata for each tag in `tags` (shows at the Swagger group header level, not as per-route description).
+- `externalDocs: { url: string; description?: string }`
+  - Applied to OpenAPI tag metadata for each tag in `tags`.
+
+Router-level metadata example:
+
+```ts
+const users = api.createRouter({
+  path: '/users',
+  tags: ['Users'],
+  version: '2',
+  deprecated: true,
+  description: 'Endpoints for managing users',
+  externalDocs: {
+    url: 'https://example.com/docs/users',
+    description: 'Users API docs',
+  },
+});
+
+users({
+  method: 'get',
+  path: '/:id',
+  response: UserSchema,
+  handler: (req) => ({ id: req.params.id }),
+});
+```
+
+In this example:
+
+- The route is marked `deprecated` unless overridden on the route.
+- `description` and `externalDocs` appear in OpenAPI `tags` metadata for `Users`.
 
 ---
 

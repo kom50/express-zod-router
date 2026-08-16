@@ -3,7 +3,7 @@ import swaggerUi from 'swagger-ui-express';
 import { OpenAPIRegistry, OpenApiGeneratorV3 } from '@asteasolutions/zod-to-openapi';
 import type { ZodType } from 'zod';
 import type { ApiDocsOptions } from './docs';
-import type { ResponseConfig } from './types';
+import type { OpenApiOperationOverrides, ResponseConfig } from './types';
 import { ErrorSchema } from './errors';
 
 export function buildOpenApiResponses({
@@ -11,11 +11,13 @@ export function buildOpenApiResponses({
   responses,
   status,
   responseDescription,
+  responseExample,
 }: {
   response?: ZodType;
   responses?: Record<number, ResponseConfig>;
   status: number;
   responseDescription: string;
+  responseExample?: unknown;
 }) {
   if (responses) {
     return Object.fromEntries(
@@ -30,6 +32,9 @@ export function buildOpenApiResponses({
               content: {
                 [contentType]: {
                   schema: config.schema,
+                  ...(config.example !== undefined && {
+                    example: config.example,
+                  }),
                 },
               },
             }),
@@ -46,11 +51,59 @@ export function buildOpenApiResponses({
         content: {
           'application/json': {
             schema: response,
+            ...(responseExample !== undefined && {
+              example: responseExample,
+            }),
           },
         },
       }),
     },
   };
+}
+
+export function buildOpenApiOperationOverrides(overrides?: OpenApiOperationOverrides): Record<string, unknown> {
+  if (!overrides) {
+    return {};
+  }
+
+  const operationOverrides: Record<string, unknown> = { ...overrides };
+
+  if (operationOverrides.externalDocs && typeof operationOverrides.externalDocs === 'object') {
+    operationOverrides.externalDocs = {
+      ...(operationOverrides.externalDocs as Record<string, unknown>),
+    };
+  }
+
+  return operationOverrides;
+}
+
+export function buildOpenApiRequestBody(schema: ZodType | undefined, example: unknown): Record<string, unknown> | undefined {
+  if (!schema) {
+    return undefined;
+  }
+
+  return {
+    content: {
+      'application/json': {
+        schema,
+        ...(example !== undefined && { example }),
+      },
+    },
+  };
+}
+
+export function mergeOpenApiOperation(
+  baseOperation: Record<string, unknown>,
+  overrides?: OpenApiOperationOverrides,
+  deprecated?: boolean,
+): Record<string, unknown> {
+  const merged = {
+    ...baseOperation,
+    ...(deprecated !== undefined && { deprecated }),
+    ...buildOpenApiOperationOverrides(overrides),
+  };
+
+  return merged;
 }
 
 export function mergeOpenApiDocument(base: Record<string, unknown>, overrides: Record<string, unknown>): Record<string, unknown> {

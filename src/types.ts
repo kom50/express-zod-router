@@ -53,15 +53,50 @@ export type TypedRequest<
   P extends ZodType | undefined = undefined,
   Q extends ZodType | undefined = undefined,
 > = Omit<Request, 'body' | 'params' | 'query'> & {
-  body: B extends ZodType ? z.infer<B> : Request['body'];
+  body: B extends ZodType
+    ? z.infer<B>
+    : B extends { schema: infer S extends ZodType }
+      ? z.infer<S>
+      : Request['body'];
   params: P extends ZodType ? z.infer<P> : Request['params'];
   query: Q extends ZodType ? z.infer<Q> : Request['query'];
 };
+
+export interface RouteSchemaConfig<TSchema extends ZodType = ZodType> {
+  schema: TSchema;
+  example?: unknown;
+}
+
+export interface RouteResponseConfig<TSchema extends ZodType = ZodType> extends RouteSchemaConfig<TSchema> {
+  description?: string;
+}
+
+type InferSchema<T> = T extends { schema: infer S extends ZodType } ? S : T extends ZodType ? T : never;
 
 export interface ResponseConfig {
   schema?: ZodType;
   description?: string;
   contentType?: string;
+  example?: unknown;
+}
+
+export interface OpenApiContentExample {
+  summary?: string;
+  description?: string;
+  value: unknown;
+}
+
+export interface OpenApiOperationOverrides {
+  externalDocs?: {
+    url: string;
+    description?: string;
+  };
+  deprecated?: boolean;
+  summary?: string;
+  description?: string;
+  tags?: string[];
+  operationId?: string;
+  [key: string]: unknown;
 }
 
 /**
@@ -92,8 +127,11 @@ export interface RouteConfig<
   summary?: string;
   description?: string;
   version?: string | false;
+  deprecated?: boolean;
+  bodyExample?: unknown;
+  openapi?: OpenApiOperationOverrides;
   tags?: string[];
-  body?: B;
+  body?: B | RouteSchemaConfig<NonNullable<B>>;
   params?: P;
   query?: Q;
   security?: RouteSecurity<S>;
@@ -108,7 +146,8 @@ export interface RouteConfig<
    *
    * response: TodoSchema
    */
-  response?: R;
+  response?: R | RouteResponseConfig<NonNullable<R>>;
+  responseExample?: unknown;
 
   /**
    * Multiple OpenAPI responses:
@@ -132,8 +171,8 @@ export interface RouteConfig<
     res: Response,
   ) => Rs extends Record<number, ResponseConfig>
     ? InferResponses<Rs> | Promise<InferResponses<Rs>>
-    : R extends ZodType
-      ? z.infer<R> | Promise<z.infer<R>>
+    : InferSchema<R> extends ZodType
+      ? z.infer<InferSchema<R>> | Promise<z.infer<InferSchema<R>>>
       : unknown;
 }
 
@@ -146,6 +185,13 @@ export interface CreateRouterOptions {
   tags?: string[];
   middleware?: Middleware[];
   security?: RouteSecurity;
+  deprecated?: boolean;
+  summary?: string;
+  description?: string;
+  externalDocs?: {
+    url: string;
+    description?: string;
+  };
 }
 
 export type CreateRouterOptionsFor<S extends AnySecuritySchemes = AnySecuritySchemes> = Omit<CreateRouterOptions, 'security'> & {
