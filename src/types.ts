@@ -88,6 +88,7 @@ export interface RouteConfig<
 > {
   method: Method;
   path: string;
+  operationId?: string;
   summary?: string;
   description?: string;
   version?: string | false;

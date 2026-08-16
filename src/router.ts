@@ -4,7 +4,7 @@ import type { ZodType } from 'zod';
 
 import { handleRouteError } from './errors';
 import type { ApiDocsOptions } from './docs';
-import { convertExpressPath, joinPaths, normalizePrefix } from './helpers';
+import { convertExpressPath, generateOperationId, joinPaths, normalizePrefix } from './helpers';
 import { chainMiddleware } from './middleware';
 import { buildOpenApiResponses, defaultValidationErrorResponse, mountDocs } from './openapi';
 import type {
@@ -45,6 +45,7 @@ function normalizeSecurity<S extends SecuritySchemes>(security?: RouteSecurity<S
 export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(options: CreateApiRouterOptions<S> = {}): ApiRouter<S> {
   const registry = new OpenAPIRegistry();
   const registeredRoutes: RegisteredRoute[] = [];
+  const operationIds = new Set<string>();
   const globalMiddleware: Middleware[] = [...(options.middleware ?? [])];
   const prefix = normalizePrefix(options.prefix);
   const securitySchemes = options.securitySchemes;
@@ -90,6 +91,7 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
     const {
       method,
       path,
+      operationId,
       summary,
       description,
       version,
@@ -110,6 +112,12 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
     const basePath = resolvedVersion ? joinPaths(prefix, `/${resolvedVersion}`) : prefix;
     const fullPath = joinPaths(basePath, path);
     const normalizedSecurity = normalizeSecurity(security);
+    const finalOperationId = operationId ?? generateOperationId(method, path);
+
+    if (operationIds.has(finalOperationId)) {
+      throw new Error(`Duplicate operationId detected: ${finalOperationId}`);
+    }
+    operationIds.add(finalOperationId);
     const routeTags = (() => {
       if (!resolvedVersion || versionConfig?.autoTag === false) {
         return tags;
@@ -125,6 +133,7 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
     registry.registerPath({
       method,
       path: convertExpressPath(fullPath),
+      operationId: finalOperationId,
       ...(summary && { summary }),
       ...(description && { description }),
       ...(routeTags && { tags: routeTags }),
