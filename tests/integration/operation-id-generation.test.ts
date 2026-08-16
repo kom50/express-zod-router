@@ -138,4 +138,59 @@ describe('openapi: operationId generation', () => {
     expect(res.status).toBe(200);
     expect(res.body.paths['/users/{id}'].get.operationId).toBe('fetchUserById');
   });
+
+  it('supports handler strategy when configured', async () => {
+    const app = express();
+    const api = createApiRouter({
+      openapi: {
+        operationId: {
+          strategy: 'handler',
+        },
+      },
+    });
+
+    async function findUsers() {
+      return { ok: true };
+    }
+
+    api.route({
+      method: 'post',
+      path: '/users',
+      response: z.object({ ok: z.boolean() }),
+      handler: findUsers,
+    });
+
+    api.docs({
+      info: {
+        title: 'Handler Strategy API',
+        version: '1.0.0',
+      },
+    });
+
+    api.mount(app);
+
+    const res = await request(app).get('/api-docs.json');
+
+    expect(res.status).toBe(200);
+    expect(res.body.paths['/users'].post.operationId).toBe('findUsers');
+  });
+
+  it('requires explicit operationId in explicit strategy mode', () => {
+    const api = createApiRouter({
+      openapi: {
+        operationId: {
+          strategy: 'explicit',
+        },
+      },
+    });
+
+    expect(() => {
+      api.route({
+        method: 'get',
+        path: '/users',
+        response: z.object({ ok: z.boolean() }),
+        handler: async () => ({ ok: true }),
+      });
+    }).toThrow('operationId is required when operationId strategy is explicit');
+  });
 });
