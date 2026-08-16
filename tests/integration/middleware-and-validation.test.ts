@@ -54,9 +54,7 @@ describe('routes: middleware and validation', () => {
 
     api.mount(app);
 
-    const res = await request(app)
-      .post('/api/users')
-      .send({ name: 'Ada' });
+    const res = await request(app).post('/api/users').send({ name: 'Ada' });
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual({
@@ -82,9 +80,7 @@ describe('routes: middleware and validation', () => {
 
     api.mount(app);
 
-    const res = await request(app)
-      .post('/users')
-      .send({ age: 17 });
+    const res = await request(app).post('/users').send({ age: 17 });
 
     expect(res.status).toBe(400);
     expect(res.body.error).toBe('Validation failed');

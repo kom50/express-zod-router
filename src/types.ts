@@ -111,6 +111,12 @@ export type InferResponses<Rs extends Record<number, ResponseConfig>> = {
     : never;
 }[keyof Rs];
 
+type SuccessStatusCode = 200 | 201 | 202 | 203 | 204 | 205 | 206 | 207 | 208 | 226;
+
+export type InferSuccessResponseBody<Rs extends Record<number, ResponseConfig>> = {
+  [K in keyof Rs]: K extends SuccessStatusCode ? (Rs[K] extends { schema: infer S extends ZodType } ? z.infer<S> : never) : never;
+}[keyof Rs];
+
 export interface RouteConfig<
   S extends AnySecuritySchemes = AnySecuritySchemes,
   B extends ZodType | undefined = undefined,
@@ -168,9 +174,9 @@ export interface RouteConfig<
     req: TypedRequest<B, P, Q>,
     res: Response,
   ) => Rs extends Record<number, ResponseConfig>
-    ? InferResponses<Rs> | Promise<InferResponses<Rs>>
+    ? InferResponses<Rs> | InferSuccessResponseBody<Rs> | Promise<InferResponses<Rs> | InferSuccessResponseBody<Rs>> | Response | Promise<Response>
     : InferSchema<R> extends ZodType
-      ? z.infer<InferSchema<R>> | Promise<z.infer<InferSchema<R>>>
+      ? z.infer<InferSchema<R>> | Promise<z.infer<InferSchema<R>>> | Response | Promise<Response>
       : unknown;
 }
 

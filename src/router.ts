@@ -242,9 +242,31 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
         let rawBody: unknown;
 
         if (responses) {
-          const r = result as { status: number; body?: unknown };
-          responseStatus = r.status;
-          rawBody = r.body;
+          if (result === undefined) {
+            if (res.headersSent || res.writableEnded) {
+              return;
+            }
+
+            throw new Error('Handler with `responses` must return `reply(status, body)` (or send a response via `res`).');
+          }
+
+          if (typeof result === 'object' && result !== null && 'status' in result) {
+            const r = result as { status: number; body?: unknown };
+            responseStatus = r.status;
+            rawBody = r.body;
+          } else {
+            const successStatuses = Object.keys(responses)
+              .map((statusCode) => Number(statusCode))
+              .filter((statusCode) => statusCode >= 200 && statusCode < 300)
+              .sort((left, right) => left - right);
+
+            if (successStatuses.length === 0) {
+              throw new Error('Handler returned a body, but `responses` has no 2xx status to map it to. Return `reply(status, body)` instead.');
+            }
+
+            responseStatus = successStatuses[0];
+            rawBody = result;
+          }
         } else {
           responseStatus = status;
           rawBody = result;

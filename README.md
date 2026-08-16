@@ -807,6 +807,106 @@ Each entry in `responses` accepts:
 Swagger UI will render an example for every declared status code, not just the
 happy path.
 
+### `reply(status, body?)` helper
+
+When using `responses`, you can return plain success data directly. It maps to
+the first declared `2xx` status (typically `200`):
+
+```ts
+todo({
+  method: 'get',
+  path: '/:id',
+  params: TodoIdParams,
+  responses: {
+    200: { schema: TodoSchema, description: 'Todo found' },
+    404: { description: 'Todo not found' },
+  },
+  handler: (req) => {
+    const found = todos.find((t) => t.id === req.params.id);
+    if (!found) throw new ApiError(404, 'Todo not found');
+    return found; // default success path -> 200
+  },
+});
+```
+
+Use `reply(...)` when you want to set a non-default status explicitly:
+
+```ts
+import { reply } from 'express-zod-router';
+
+todo({
+  method: 'get',
+  path: '/:id',
+  params: TodoIdParams,
+  responses: {
+    200: { schema: TodoSchema, description: 'Todo found' },
+    404: { description: 'Todo not found' },
+  },
+  handler: (req) => {
+    const found = todos.find((t) => t.id === req.params.id);
+    if (!found) return reply(404);
+    return reply(200, found);
+  },
+});
+```
+
+You can also write directly to `res` (return the `Response`):
+
+```ts
+todo({
+  method: 'get',
+  path: '/:id',
+  params: TodoIdParams,
+  responses: {
+    200: { schema: TodoSchema, description: 'Todo found' },
+    404: { description: 'Todo not found' },
+  },
+  handler: (req, res) => {
+    const found = todos.find((t) => t.id === req.params.id);
+    if (!found) {
+      return res.status(404).json({ error: 'Todo not found' });
+    }
+    return res.status(200).json(found);
+  },
+});
+```
+
+If you use `responses`, every code path should either:
+
+- return plain success body (maps to first `2xx` response), or
+- return `reply(status, body?)`, or
+- return `res.status(...).json(...)`.
+
+This keeps TypeScript strict, so missing success paths (for example a missing
+`200` return) are caught at compile time.
+
+### Returning `res.status(...).json(...)`
+
+Returning Express `Response` is supported in `responses` mode, as long as you
+`return` it explicitly:
+
+```ts
+todo({
+  method: 'get',
+  path: '/:id',
+  params: TodoIdParams,
+  responses: {
+    200: { schema: TodoSchema, description: 'Todo found' },
+    404: { description: 'Todo not found' },
+  },
+  handler: (req, res) => {
+    const found = todos.find((t) => t.id === req.params.id);
+    if (!found) {
+      return res.status(404).json({ error: 'Todo not found' });
+    }
+    return res.status(200).json(found); // supported
+  },
+});
+```
+
+If you call `res.status(...).json(...)` without `return`, TypeScript will flag
+the missing return path.
+
 ---
 
 ## Handling `204 No Content`
