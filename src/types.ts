@@ -202,6 +202,19 @@ export type CreateRouterOptionsFor<S extends AnySecuritySchemes = AnySecuritySch
   security?: RouteSecurity<S>;
 };
 
+/**
+ * Route config without the method field, for use with convenience methods.
+ * Note: path is also excluded since convenience methods receive it as a separate argument.
+ */
+export type RouteConfigWithoutMethod<
+  S extends AnySecuritySchemes = AnySecuritySchemes,
+  B extends ZodType | undefined = undefined,
+  P extends ZodType | undefined = undefined,
+  Q extends ZodType | undefined = undefined,
+  R extends ZodType | undefined = undefined,
+  Rs extends Record<number, ResponseConfig> | undefined = undefined,
+> = Omit<RouteConfig<S, B, P, Q, R, Rs>, 'method' | 'path'>;
+
 export type ScopedRouter<S extends AnySecuritySchemes = AnySecuritySchemes> = {
   <
     B extends ZodType | undefined = undefined,
@@ -212,6 +225,76 @@ export type ScopedRouter<S extends AnySecuritySchemes = AnySecuritySchemes> = {
   >(
     config: RouteConfig<S, B, P, Q, R, Rs>,
   ): ApiRouter<S>;
+
+  get: <
+    B extends ZodType | undefined = undefined,
+    P extends ZodType | undefined = undefined,
+    Q extends ZodType | undefined = undefined,
+    R extends ZodType | undefined = undefined,
+    Rs extends Record<number, ResponseConfig> | undefined = undefined,
+  >(
+    path: string,
+    config: Omit<RouteConfigWithoutMethod<S, B, P, Q, R, Rs>, 'path' | 'tags' | 'security'> & {
+      version?: ApiVersion | false;
+      security?: RouteSecurity<S>;
+    },
+  ) => ApiRouter<S>;
+
+  post: <
+    B extends ZodType | undefined = undefined,
+    P extends ZodType | undefined = undefined,
+    Q extends ZodType | undefined = undefined,
+    R extends ZodType | undefined = undefined,
+    Rs extends Record<number, ResponseConfig> | undefined = undefined,
+  >(
+    path: string,
+    config: Omit<RouteConfigWithoutMethod<S, B, P, Q, R, Rs>, 'path' | 'tags' | 'security'> & {
+      version?: ApiVersion | false;
+      security?: RouteSecurity<S>;
+    },
+  ) => ApiRouter<S>;
+
+  put: <
+    B extends ZodType | undefined = undefined,
+    P extends ZodType | undefined = undefined,
+    Q extends ZodType | undefined = undefined,
+    R extends ZodType | undefined = undefined,
+    Rs extends Record<number, ResponseConfig> | undefined = undefined,
+  >(
+    path: string,
+    config: Omit<RouteConfigWithoutMethod<S, B, P, Q, R, Rs>, 'path' | 'tags' | 'security'> & {
+      version?: ApiVersion | false;
+      security?: RouteSecurity<S>;
+    },
+  ) => ApiRouter<S>;
+
+  patch: <
+    B extends ZodType | undefined = undefined,
+    P extends ZodType | undefined = undefined,
+    Q extends ZodType | undefined = undefined,
+    R extends ZodType | undefined = undefined,
+    Rs extends Record<number, ResponseConfig> | undefined = undefined,
+  >(
+    path: string,
+    config: Omit<RouteConfigWithoutMethod<S, B, P, Q, R, Rs>, 'path' | 'tags' | 'security'> & {
+      version?: ApiVersion | false;
+      security?: RouteSecurity<S>;
+    },
+  ) => ApiRouter<S>;
+
+  delete: <
+    B extends ZodType | undefined = undefined,
+    P extends ZodType | undefined = undefined,
+    Q extends ZodType | undefined = undefined,
+    R extends ZodType | undefined = undefined,
+    Rs extends Record<number, ResponseConfig> | undefined = undefined,
+  >(
+    path: string,
+    config: Omit<RouteConfigWithoutMethod<S, B, P, Q, R, Rs>, 'path' | 'tags' | 'security'> & {
+      version?: ApiVersion | false;
+      security?: RouteSecurity<S>;
+    },
+  ) => ApiRouter<S>;
 
   use: (middleware: Middleware) => ScopedRouter<S>;
 };
@@ -225,6 +308,61 @@ export interface ApiRouter<S extends AnySecuritySchemes = AnySecuritySchemes> {
     Rs extends Record<number, ResponseConfig> | undefined = undefined,
   >(
     config: RouteConfig<S, B, P, Q, R, Rs>,
+  ) => ApiRouter<S>;
+
+  get: <
+    B extends ZodType | undefined = undefined,
+    P extends ZodType | undefined = undefined,
+    Q extends ZodType | undefined = undefined,
+    R extends ZodType | undefined = undefined,
+    Rs extends Record<number, ResponseConfig> | undefined = undefined,
+  >(
+    path: string,
+    config: RouteConfigWithoutMethod<S, B, P, Q, R, Rs>,
+  ) => ApiRouter<S>;
+
+  post: <
+    B extends ZodType | undefined = undefined,
+    P extends ZodType | undefined = undefined,
+    Q extends ZodType | undefined = undefined,
+    R extends ZodType | undefined = undefined,
+    Rs extends Record<number, ResponseConfig> | undefined = undefined,
+  >(
+    path: string,
+    config: RouteConfigWithoutMethod<S, B, P, Q, R, Rs>,
+  ) => ApiRouter<S>;
+
+  put: <
+    B extends ZodType | undefined = undefined,
+    P extends ZodType | undefined = undefined,
+    Q extends ZodType | undefined = undefined,
+    R extends ZodType | undefined = undefined,
+    Rs extends Record<number, ResponseConfig> | undefined = undefined,
+  >(
+    path: string,
+    config: RouteConfigWithoutMethod<S, B, P, Q, R, Rs>,
+  ) => ApiRouter<S>;
+
+  patch: <
+    B extends ZodType | undefined = undefined,
+    P extends ZodType | undefined = undefined,
+    Q extends ZodType | undefined = undefined,
+    R extends ZodType | undefined = undefined,
+    Rs extends Record<number, ResponseConfig> | undefined = undefined,
+  >(
+    path: string,
+    config: RouteConfigWithoutMethod<S, B, P, Q, R, Rs>,
+  ) => ApiRouter<S>;
+
+  delete: <
+    B extends ZodType | undefined = undefined,
+    P extends ZodType | undefined = undefined,
+    Q extends ZodType | undefined = undefined,
+    R extends ZodType | undefined = undefined,
+    Rs extends Record<number, ResponseConfig> | undefined = undefined,
+  >(
+    path: string,
+    config: RouteConfigWithoutMethod<S, B, P, Q, R, Rs>,
   ) => ApiRouter<S>;
 
   createRouter: ((prefix: string, tags?: string[]) => ScopedRouter<S>) & ((options: CreateRouterOptionsFor<S>) => ScopedRouter<S>);

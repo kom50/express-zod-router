@@ -14,11 +14,13 @@ import type {
   ApiRouter,
   CreateRouterOptionsFor,
   Middleware,
+  Method,
   OpenApiSecurityRequirement,
   ResponseConfig,
   RouteResponseConfig,
   RouteSchemaConfig,
   RouteConfig,
+  RouteConfigWithoutMethod,
   RouteSecurity,
   SecuritySchemes,
   TypedRequest,
@@ -123,9 +125,17 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
     R extends ZodType | undefined = undefined,
     Rs extends Record<number, ResponseConfig> | undefined = undefined,
   >(config: RouteConfig<S, B, P, Q, R, Rs>): ApiRouter<S> {
+    return _registerRoute(config.method, config.path, config);
+  }
+
+  function _registerRoute<
+    B extends ZodType | undefined = undefined,
+    P extends ZodType | undefined = undefined,
+    Q extends ZodType | undefined = undefined,
+    R extends ZodType | undefined = undefined,
+    Rs extends Record<number, ResponseConfig> | undefined = undefined,
+  >(method: Method, path: string, config: Omit<RouteConfig<S, B, P, Q, R, Rs>, 'method' | 'path'>): ApiRouter<S> {
     const {
-      method,
-      path,
       operationId,
       summary,
       description,
@@ -350,6 +360,71 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
           security?: RouteSecurity<S>;
         },
       ): ApiRouter<S>;
+      get: <
+        B extends ZodType | undefined = undefined,
+        P extends ZodType | undefined = undefined,
+        Q extends ZodType | undefined = undefined,
+        R extends ZodType | undefined = undefined,
+        Rs extends Record<number, ResponseConfig> | undefined = undefined,
+      >(
+        path: string,
+        config: Omit<RouteConfigWithoutMethod<S, B, P, Q, R, Rs>, 'path' | 'tags' | 'security'> & {
+          version?: ApiVersion | false;
+          security?: RouteSecurity<S>;
+        },
+      ) => ApiRouter<S>;
+      post: <
+        B extends ZodType | undefined = undefined,
+        P extends ZodType | undefined = undefined,
+        Q extends ZodType | undefined = undefined,
+        R extends ZodType | undefined = undefined,
+        Rs extends Record<number, ResponseConfig> | undefined = undefined,
+      >(
+        path: string,
+        config: Omit<RouteConfigWithoutMethod<S, B, P, Q, R, Rs>, 'path' | 'tags' | 'security'> & {
+          version?: ApiVersion | false;
+          security?: RouteSecurity<S>;
+        },
+      ) => ApiRouter<S>;
+      put: <
+        B extends ZodType | undefined = undefined,
+        P extends ZodType | undefined = undefined,
+        Q extends ZodType | undefined = undefined,
+        R extends ZodType | undefined = undefined,
+        Rs extends Record<number, ResponseConfig> | undefined = undefined,
+      >(
+        path: string,
+        config: Omit<RouteConfigWithoutMethod<S, B, P, Q, R, Rs>, 'path' | 'tags' | 'security'> & {
+          version?: ApiVersion | false;
+          security?: RouteSecurity<S>;
+        },
+      ) => ApiRouter<S>;
+      patch: <
+        B extends ZodType | undefined = undefined,
+        P extends ZodType | undefined = undefined,
+        Q extends ZodType | undefined = undefined,
+        R extends ZodType | undefined = undefined,
+        Rs extends Record<number, ResponseConfig> | undefined = undefined,
+      >(
+        path: string,
+        config: Omit<RouteConfigWithoutMethod<S, B, P, Q, R, Rs>, 'path' | 'tags' | 'security'> & {
+          version?: ApiVersion | false;
+          security?: RouteSecurity<S>;
+        },
+      ) => ApiRouter<S>;
+      delete: <
+        B extends ZodType | undefined = undefined,
+        P extends ZodType | undefined = undefined,
+        Q extends ZodType | undefined = undefined,
+        R extends ZodType | undefined = undefined,
+        Rs extends Record<number, ResponseConfig> | undefined = undefined,
+      >(
+        path: string,
+        config: Omit<RouteConfigWithoutMethod<S, B, P, Q, R, Rs>, 'path' | 'tags' | 'security'> & {
+          version?: ApiVersion | false;
+          security?: RouteSecurity<S>;
+        },
+      ) => ApiRouter<S>;
       use: (middleware: Middleware) => ScopedRouterImpl;
     };
 
@@ -379,6 +454,146 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
     routerFunction.use = function (middleware: Middleware) {
       routerMiddleware.push(middleware);
       return routerFunction;
+    };
+
+    routerFunction.get = function <
+      B extends ZodType | undefined = undefined,
+      P extends ZodType | undefined = undefined,
+      Q extends ZodType | undefined = undefined,
+      R extends ZodType | undefined = undefined,
+      Rs extends Record<number, ResponseConfig> | undefined = undefined,
+    >(
+      path: string,
+      config: Omit<RouteConfigWithoutMethod<S, B, P, Q, R, Rs>, 'path' | 'tags' | 'security'> & {
+        version?: ApiVersion | false;
+        security?: RouteSecurity<S>;
+      },
+    ) {
+      const routePath = joinPaths(normalizedPrefix, path);
+      const routeMiddleware = config.middleware ?? [];
+      const routeSecurity = config.security ?? routerSecurity;
+      const routeVersion = config.version ?? routerVersion;
+
+      return _registerRoute('get', routePath, {
+        ...(config as any),
+        ...(routerDeprecated !== undefined && config.deprecated === undefined ? { deprecated: routerDeprecated } : {}),
+        middleware: [...routerMiddleware, ...routeMiddleware],
+        security: routeSecurity,
+        version: routeVersion,
+        tags,
+      });
+    };
+
+    routerFunction.post = function <
+      B extends ZodType | undefined = undefined,
+      P extends ZodType | undefined = undefined,
+      Q extends ZodType | undefined = undefined,
+      R extends ZodType | undefined = undefined,
+      Rs extends Record<number, ResponseConfig> | undefined = undefined,
+    >(
+      path: string,
+      config: Omit<RouteConfigWithoutMethod<S, B, P, Q, R, Rs>, 'path' | 'tags' | 'security'> & {
+        version?: ApiVersion | false;
+        security?: RouteSecurity<S>;
+      },
+    ) {
+      const routePath = joinPaths(normalizedPrefix, path);
+      const routeMiddleware = config.middleware ?? [];
+      const routeSecurity = config.security ?? routerSecurity;
+      const routeVersion = config.version ?? routerVersion;
+
+      return _registerRoute('post', routePath, {
+        ...(config as any),
+        ...(routerDeprecated !== undefined && config.deprecated === undefined ? { deprecated: routerDeprecated } : {}),
+        middleware: [...routerMiddleware, ...routeMiddleware],
+        security: routeSecurity,
+        version: routeVersion,
+        tags,
+      });
+    };
+
+    routerFunction.put = function <
+      B extends ZodType | undefined = undefined,
+      P extends ZodType | undefined = undefined,
+      Q extends ZodType | undefined = undefined,
+      R extends ZodType | undefined = undefined,
+      Rs extends Record<number, ResponseConfig> | undefined = undefined,
+    >(
+      path: string,
+      config: Omit<RouteConfigWithoutMethod<S, B, P, Q, R, Rs>, 'path' | 'tags' | 'security'> & {
+        version?: ApiVersion | false;
+        security?: RouteSecurity<S>;
+      },
+    ) {
+      const routePath = joinPaths(normalizedPrefix, path);
+      const routeMiddleware = config.middleware ?? [];
+      const routeSecurity = config.security ?? routerSecurity;
+      const routeVersion = config.version ?? routerVersion;
+
+      return _registerRoute('put', routePath, {
+        ...(config as any),
+        ...(routerDeprecated !== undefined && config.deprecated === undefined ? { deprecated: routerDeprecated } : {}),
+        middleware: [...routerMiddleware, ...routeMiddleware],
+        security: routeSecurity,
+        version: routeVersion,
+        tags,
+      });
+    };
+
+    routerFunction.patch = function <
+      B extends ZodType | undefined = undefined,
+      P extends ZodType | undefined = undefined,
+      Q extends ZodType | undefined = undefined,
+      R extends ZodType | undefined = undefined,
+      Rs extends Record<number, ResponseConfig> | undefined = undefined,
+    >(
+      path: string,
+      config: Omit<RouteConfigWithoutMethod<S, B, P, Q, R, Rs>, 'path' | 'tags' | 'security'> & {
+        version?: ApiVersion | false;
+        security?: RouteSecurity<S>;
+      },
+    ) {
+      const routePath = joinPaths(normalizedPrefix, path);
+      const routeMiddleware = config.middleware ?? [];
+      const routeSecurity = config.security ?? routerSecurity;
+      const routeVersion = config.version ?? routerVersion;
+
+      return _registerRoute('patch', routePath, {
+        ...(config as any),
+        ...(routerDeprecated !== undefined && config.deprecated === undefined ? { deprecated: routerDeprecated } : {}),
+        middleware: [...routerMiddleware, ...routeMiddleware],
+        security: routeSecurity,
+        version: routeVersion,
+        tags,
+      });
+    };
+
+    routerFunction.delete = function <
+      B extends ZodType | undefined = undefined,
+      P extends ZodType | undefined = undefined,
+      Q extends ZodType | undefined = undefined,
+      R extends ZodType | undefined = undefined,
+      Rs extends Record<number, ResponseConfig> | undefined = undefined,
+    >(
+      path: string,
+      config: Omit<RouteConfigWithoutMethod<S, B, P, Q, R, Rs>, 'path' | 'tags' | 'security'> & {
+        version?: ApiVersion | false;
+        security?: RouteSecurity<S>;
+      },
+    ) {
+      const routePath = joinPaths(normalizedPrefix, path);
+      const routeMiddleware = config.middleware ?? [];
+      const routeSecurity = config.security ?? routerSecurity;
+      const routeVersion = config.version ?? routerVersion;
+
+      return _registerRoute('delete', routePath, {
+        ...(config as any),
+        ...(routerDeprecated !== undefined && config.deprecated === undefined ? { deprecated: routerDeprecated } : {}),
+        middleware: [...routerMiddleware, ...routeMiddleware],
+        security: routeSecurity,
+        version: routeVersion,
+        tags,
+      });
     };
 
     return routerFunction;
@@ -454,6 +669,11 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
 
   const api: ApiRouter<S> = {
     route,
+    get: (path, config) => _registerRoute('get', path, config),
+    post: (path, config) => _registerRoute('post', path, config),
+    put: (path, config) => _registerRoute('put', path, config),
+    patch: (path, config) => _registerRoute('patch', path, config),
+    delete: (path, config) => _registerRoute('delete', path, config),
     createRouter,
     version,
     routes: registerRoutes,
