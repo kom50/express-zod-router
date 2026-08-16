@@ -42,17 +42,26 @@ Problems:
 
 ```ts
 // ✅ express-zod-router (single source of truth)
+
+// Generic style
 api.route({
   method: 'post',
   path: '/users',
-  body: UserSchema, // one schema
-  response: UserSchema, // for both validation
-  middleware: [authenticate], // and middleware
+  body: UserSchema,
+  response: UserSchema,
+  middleware: [authenticate],
   handler: (req) => {
-    // handler gets typed req
     const user = req.body; // type: { id, name, email }
     return user;
   },
+});
+
+// Or with HTTP-method convenience shorthand
+api.post('/users', {
+  body: UserSchema,
+  response: UserSchema,
+  middleware: [authenticate],
+  handler: (req) => req.body,
 });
 ```
 
@@ -129,9 +138,8 @@ const TodoSchema = z
 export function todoRoutes(api: ApiRouter) {
   const todo = api.createRouter('/todos', ['Todos']);
 
-  todo({
-    method: 'get',
-    path: '/:id',
+  // Convenience method style
+  todo.get('/:id', {
     params: z.object({ id: z.string() }),
     responses: {
       200: { schema: TodoSchema, description: 'Todo found' },
@@ -293,24 +301,16 @@ export function userRoutes(api: ApiRouter) {
     middleware: [authenticate], // optional
   });
 
-  users({
-    method: 'get',
-    path: '/:id',
+  users.get('/:id', {
     params: z.object({ id: z.string().uuid() }),
     response: UserSchema,
-    handler: (req) => {
-      return getUserById(req.params.id);
-    },
+    handler: (req) => getUserById(req.params.id),
   });
 
-  users({
-    method: 'post',
-    path: '/',
+  users.post('/', {
     body: CreateUserSchema,
     response: UserSchema,
-    handler: (req) => {
-      return createUser(req.body);
-    },
+    handler: (req) => createUser(req.body),
   });
 }
 ```
@@ -413,10 +413,10 @@ api.route({
 | `operationId`         | `string` (optional)                                                                  | Manual OpenAPI operation ID override. If omitted, a REST-aware ID is generated automatically                                                     |
 | `summary`             | `string` (optional)                                                                  | Short label shown in Swagger UI                                                                                                                  |
 | `description`         | `string` (optional)                                                                  | Longer description shown in Swagger UI                                                                                                           |
-| `deprecated`          | `boolean` (optional)                                                                 | Mark route as deprecated in OpenAPI spec (Phase 2)                                                                                               |
+| `deprecated`          | `boolean` (optional)                                                                 | Mark route as deprecated in OpenAPI spec                                                                                                         |
 | `version`             | `ApiVersion \| false` (optional)                                                     | Route version. Inherits global/router defaults. `false` disables version inheritance for this route. `ApiVersion` is `"2"`, `"10"`, `"v2"`, etc. |
 | `tags`                | `string[]` (optional)                                                                | Groups the route in Swagger UI                                                                                                                   |
-| `body`                | `ZodType \| { schema: ZodType; example?: unknown }` (optional)                       | Validates & types `req.body`. When using the object form, `schema` is required and `example` appears in OpenAPI (Phase 2)                        |
+| `body`                | `ZodType \| { schema: ZodType; example?: unknown }` (optional)                       | Validates & types `req.body`. When using the object form, `schema` is required and `example` appears in OpenAPI                                  |
 | `params`              | `ZodType` (optional)                                                                 | Validates & types `req.params`                                                                                                                   |
 | `query`               | `ZodType` (optional)                                                                 | Validates & types `req.query` (supports `z.coerce`)                                                                                              |
 | `security`            | `(SecuritySchemeName \| SecurityRequirement)[]` (optional)                           | Route-level OpenAPI security metadata. Example: `['bearerAuth']` or `[{ oauth2: ['users:read'] }]`                                               |
@@ -424,10 +424,36 @@ api.route({
 | `status`              | `number` (optional)                                                                  | Status code used with `response`. Defaults to `200`                                                                                              |
 | `responseDescription` | `string` (optional)                                                                  | Swagger description used with `response`. Defaults to `"Success"`                                                                                |
 | `responses`           | `Record<number, ResponseConfig>` (optional)                                          | **Multi-response map** — declare every status code the route can return (see below). Takes priority over `response`/`status` for documentation   |
-| `openapi`             | `OpenApiOperationOverrides` (optional)                                               | Custom OpenAPI operation metadata (summary, tags, externalDocs, etc.). Merged with auto-generated content (Phase 2)                              |
+| `openapi`             | `OpenApiOperationOverrides` (optional)                                               | Custom OpenAPI operation metadata (summary, tags, externalDocs, etc.). Merged with auto-generated content                                        |
 | `handler`             | `(req, res) => any`                                                                  | Return the payload directly, or call `res.send()`/`res.json()` yourself                                                                          |
 
 Returns the `ApiRouter` instance, so calls can be chained.
+
+---
+
+### `api.get / post / put / patch / delete(path, config)`
+
+Convenience shorthands for `api.route()` that eliminate the redundant `method` field. Each method accepts the same config as `api.route()` minus `method` and `path`:
+
+```ts
+// These two are exactly equivalent
+api.route({ method: 'get', path: '/users', response: UserSchema, handler: listUsers });
+api.get('/users', { response: UserSchema, handler: listUsers });
+```
+
+All five HTTP verbs are available:
+
+```ts
+api.get('/users', { response: UserSchema.array(), handler: listUsers });
+api.post('/users', { body: CreateUserSchema, response: UserSchema, handler: createUser });
+api.put('/users/:id', { params: IdParams, body: UserSchema, response: UserSchema, handler: replaceUser });
+api.patch('/users/:id', { params: IdParams, body: UserSchema.partial(), response: UserSchema, handler: updateUser });
+api.delete('/users/:id', { params: IdParams, response: z.object({ success: z.boolean() }), handler: deleteUser });
+```
+
+Full type inference is preserved — `req.body`, `req.params`, `req.query`, and the return type are all inferred from the schemas you pass, identical to `api.route()`.
+
+The same convenience methods are also available on scoped routers returned by `createRouter()` — see the `createRouter` section below.
 
 ### Automatic `operationId`
 
@@ -477,7 +503,7 @@ const api = createApiRouter({
 
 ---
 
-### OpenAPI Metadata (Phase 2)
+### OpenAPI Metadata
 
 #### Deprecated
 
@@ -577,15 +603,38 @@ The `openapi` field supports any OpenAPI operation metadata (summary, tags, exte
 Returns a scoped route-registration function with a path prefix and default tags
 baked in — equivalent to FastAPI's `APIRouter(prefix=..., tags=[...])`.
 
+Scoped routers support **both** the generic callable style and HTTP-method convenience methods:
+
 ```ts
 const todo = api.createRouter('/todos', ['Todos']);
 
+// Generic callable style
 todo({
   method: 'get',
   path: '/:id', // resolves to {api prefix}/todos/:id
   handler: (req) => ({ id: req.params.id }),
 });
+
+// Convenience method style (equivalent)
+todo.get('/:id', {
+  handler: (req) => ({ id: req.params.id }),
+});
 ```
+
+All five HTTP methods are available on scoped routers:
+
+```ts
+const users = api.createRouter({ path: '/users', tags: ['Users'] });
+
+users.get('/', { response: UserSchema.array(), handler: listUsers });
+users.get('/:id', { params: IdParams, response: UserSchema, handler: getUser });
+users.post('/', { body: CreateUserSchema, response: UserSchema, handler: createUser });
+users.put('/:id', { params: IdParams, body: UserSchema, response: UserSchema, handler: replaceUser });
+users.patch('/:id', { params: IdParams, body: UserSchema.partial(), response: UserSchema, handler: updateUser });
+users.delete('/:id', { params: IdParams, response: z.object({ success: z.boolean() }), handler: deleteUser });
+```
+
+Convenience methods on scoped routers inherit the router's prefix, tags, middleware, security, version, and deprecated settings exactly as the generic callable does.
 
 You can also pass router-level middleware and security defaults:
 

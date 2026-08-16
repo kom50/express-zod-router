@@ -202,6 +202,76 @@ export type CreateRouterOptionsFor<S extends AnySecuritySchemes = AnySecuritySch
   security?: RouteSecurity<S>;
 };
 
+/**
+ * Route config without the method field, for use with convenience methods.
+ * Note: path is also excluded since convenience methods receive it as a separate argument.
+ */
+export type RouteConfigWithoutMethod<
+  S extends AnySecuritySchemes = AnySecuritySchemes,
+  B extends ZodType | undefined = undefined,
+  P extends ZodType | undefined = undefined,
+  Q extends ZodType | undefined = undefined,
+  R extends ZodType | undefined = undefined,
+  Rs extends Record<number, ResponseConfig> | undefined = undefined,
+> = Omit<RouteConfig<S, B, P, Q, R, Rs>, 'method' | 'path'>;
+
+/**
+ * Convenience route config for root API methods.
+ * All route fields are available, method and path are provided separately.
+ */
+export type RootApiConvenienceConfig<
+  S extends AnySecuritySchemes = AnySecuritySchemes,
+  B extends ZodType | undefined = undefined,
+  P extends ZodType | undefined = undefined,
+  Q extends ZodType | undefined = undefined,
+  R extends ZodType | undefined = undefined,
+  Rs extends Record<number, ResponseConfig> | undefined = undefined,
+> = RouteConfigWithoutMethod<S, B, P, Q, R, Rs>;
+
+/**
+ * Convenience route config for scoped router methods.
+ * Excludes path, tags (inherited), and security (can be overridden).
+ */
+export type ScopedRouterConvenienceConfig<
+  S extends AnySecuritySchemes = AnySecuritySchemes,
+  B extends ZodType | undefined = undefined,
+  P extends ZodType | undefined = undefined,
+  Q extends ZodType | undefined = undefined,
+  R extends ZodType | undefined = undefined,
+  Rs extends Record<number, ResponseConfig> | undefined = undefined,
+> = Omit<RouteConfigWithoutMethod<S, B, P, Q, R, Rs>, 'path' | 'tags' | 'security'> & {
+  version?: ApiVersion | false;
+  security?: RouteSecurity<S>;
+};
+
+/**
+ * Reusable signature for root API HTTP method convenience functions.
+ */
+export type RootApiMethodSignature<S extends AnySecuritySchemes = AnySecuritySchemes> = <
+  B extends ZodType | undefined = undefined,
+  P extends ZodType | undefined = undefined,
+  Q extends ZodType | undefined = undefined,
+  R extends ZodType | undefined = undefined,
+  Rs extends Record<number, ResponseConfig> | undefined = undefined,
+>(
+  path: string,
+  config: RootApiConvenienceConfig<S, B, P, Q, R, Rs>,
+) => ApiRouter<S>;
+
+/**
+ * Reusable signature for scoped router HTTP method convenience functions.
+ */
+export type ScopedRouterMethodSignature<S extends AnySecuritySchemes = AnySecuritySchemes> = <
+  B extends ZodType | undefined = undefined,
+  P extends ZodType | undefined = undefined,
+  Q extends ZodType | undefined = undefined,
+  R extends ZodType | undefined = undefined,
+  Rs extends Record<number, ResponseConfig> | undefined = undefined,
+>(
+  path: string,
+  config: ScopedRouterConvenienceConfig<S, B, P, Q, R, Rs>,
+) => ApiRouter<S>;
+
 export type ScopedRouter<S extends AnySecuritySchemes = AnySecuritySchemes> = {
   <
     B extends ZodType | undefined = undefined,
@@ -212,6 +282,12 @@ export type ScopedRouter<S extends AnySecuritySchemes = AnySecuritySchemes> = {
   >(
     config: RouteConfig<S, B, P, Q, R, Rs>,
   ): ApiRouter<S>;
+
+  get: ScopedRouterMethodSignature<S>;
+  post: ScopedRouterMethodSignature<S>;
+  put: ScopedRouterMethodSignature<S>;
+  patch: ScopedRouterMethodSignature<S>;
+  delete: ScopedRouterMethodSignature<S>;
 
   use: (middleware: Middleware) => ScopedRouter<S>;
 };
@@ -226,6 +302,12 @@ export interface ApiRouter<S extends AnySecuritySchemes = AnySecuritySchemes> {
   >(
     config: RouteConfig<S, B, P, Q, R, Rs>,
   ) => ApiRouter<S>;
+
+  get: RootApiMethodSignature<S>;
+  post: RootApiMethodSignature<S>;
+  put: RootApiMethodSignature<S>;
+  patch: RootApiMethodSignature<S>;
+  delete: RootApiMethodSignature<S>;
 
   createRouter: ((prefix: string, tags?: string[]) => ScopedRouter<S>) & ((options: CreateRouterOptionsFor<S>) => ScopedRouter<S>);
   version: (versionString: ApiVersion, options?: Omit<CreateRouterOptionsFor<S>, 'path' | 'version'>) => ScopedRouter<S>;

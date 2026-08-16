@@ -14,11 +14,14 @@ import type {
   ApiRouter,
   CreateRouterOptionsFor,
   Middleware,
+  Method,
   OpenApiSecurityRequirement,
   ResponseConfig,
   RouteResponseConfig,
   RouteSchemaConfig,
   RouteConfig,
+  ScopedRouterConvenienceConfig,
+  ScopedRouterMethodSignature,
   RouteSecurity,
   SecuritySchemes,
   TypedRequest,
@@ -123,9 +126,17 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
     R extends ZodType | undefined = undefined,
     Rs extends Record<number, ResponseConfig> | undefined = undefined,
   >(config: RouteConfig<S, B, P, Q, R, Rs>): ApiRouter<S> {
+    return _registerRoute(config.method, config.path, config);
+  }
+
+  function _registerRoute<
+    B extends ZodType | undefined = undefined,
+    P extends ZodType | undefined = undefined,
+    Q extends ZodType | undefined = undefined,
+    R extends ZodType | undefined = undefined,
+    Rs extends Record<number, ResponseConfig> | undefined = undefined,
+  >(method: Method, path: string, config: Omit<RouteConfig<S, B, P, Q, R, Rs>, 'method' | 'path'>): ApiRouter<S> {
     const {
-      method,
-      path,
       operationId,
       summary,
       description,
@@ -336,7 +347,7 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
     const routerMiddleware: Middleware[] = [...initialMiddleware];
     const routerSecurity: RouteSecurity<S> | undefined = initialSecurity;
 
-    type ScopedRouterImpl = {
+    type ScopedRouteFunction = {
       <
         B extends ZodType | undefined = undefined,
         P extends ZodType | undefined = undefined,
@@ -350,6 +361,14 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
           security?: RouteSecurity<S>;
         },
       ): ApiRouter<S>;
+    };
+
+    type ScopedRouterImpl = ScopedRouteFunction & {
+      get: ScopedRouterMethodSignature<S>;
+      post: ScopedRouterMethodSignature<S>;
+      put: ScopedRouterMethodSignature<S>;
+      patch: ScopedRouterMethodSignature<S>;
+      delete: ScopedRouterMethodSignature<S>;
       use: (middleware: Middleware) => ScopedRouterImpl;
     };
 
@@ -380,6 +399,36 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
       routerMiddleware.push(middleware);
       return routerFunction;
     };
+
+    function registerScopedMethod(method: Method): ScopedRouterMethodSignature<S> {
+      return function <
+        B extends ZodType | undefined = undefined,
+        P extends ZodType | undefined = undefined,
+        Q extends ZodType | undefined = undefined,
+        R extends ZodType | undefined = undefined,
+        Rs extends Record<number, ResponseConfig> | undefined = undefined,
+      >(path: string, config: ScopedRouterConvenienceConfig<S, B, P, Q, R, Rs>): ApiRouter<S> {
+        const routePath = joinPaths(normalizedPrefix, path);
+        const routeMiddleware = config.middleware ?? [];
+        const routeSecurity = config.security ?? routerSecurity;
+        const routeVersion = config.version ?? routerVersion;
+
+        return _registerRoute(method, routePath, {
+          ...config,
+          ...(routerDeprecated !== undefined && config.deprecated === undefined ? { deprecated: routerDeprecated } : {}),
+          middleware: [...routerMiddleware, ...routeMiddleware],
+          security: routeSecurity,
+          version: routeVersion,
+          tags,
+        });
+      };
+    }
+
+    routerFunction.get = registerScopedMethod('get');
+    routerFunction.post = registerScopedMethod('post');
+    routerFunction.put = registerScopedMethod('put');
+    routerFunction.patch = registerScopedMethod('patch');
+    routerFunction.delete = registerScopedMethod('delete');
 
     return routerFunction;
   }
@@ -454,6 +503,11 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
 
   const api: ApiRouter<S> = {
     route,
+    get: (path, config) => _registerRoute('get', path, config),
+    post: (path, config) => _registerRoute('post', path, config),
+    put: (path, config) => _registerRoute('put', path, config),
+    patch: (path, config) => _registerRoute('patch', path, config),
+    delete: (path, config) => _registerRoute('delete', path, config),
     createRouter,
     version,
     routes: registerRoutes,
