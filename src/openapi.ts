@@ -1,9 +1,9 @@
 import type { Express } from 'express';
 import swaggerUi from 'swagger-ui-express';
 import { OpenAPIRegistry, OpenApiGeneratorV3 } from '@asteasolutions/zod-to-openapi';
-import type { ZodType } from 'zod';
+import { z, type ZodType } from 'zod';
 import type { ApiDocsOptions } from './docs';
-import type { OpenApiOperationOverrides, ResponseConfig } from './types';
+import type { OpenApiOperationOverrides, ResponseConfig, UploadConfig } from './types';
 import { ErrorSchema } from './errors';
 
 export function buildOpenApiResponses({
@@ -77,9 +77,92 @@ export function buildOpenApiOperationOverrides(overrides?: OpenApiOperationOverr
   return operationOverrides;
 }
 
-export function buildOpenApiRequestBody(schema: ZodType | undefined, example: unknown): Record<string, unknown> | undefined {
-  if (!schema) {
+function buildMultipartFieldSchema(upload: UploadConfig): ZodType {
+  if (upload.type === 'single') {
+    return z.string().openapi({
+      type: 'string',
+      format: 'binary',
+    });
+  }
+
+  return z
+    .array(
+      z.string().openapi({
+        type: 'string',
+        format: 'binary',
+      }),
+    )
+    .openapi({
+      type: 'array',
+      items: {
+        type: 'string',
+        format: 'binary',
+      },
+      ...(upload.maxFiles !== undefined ? { maxItems: upload.maxFiles } : {}),
+    });
+}
+
+function mergeMultipartBodySchema(schema: ZodType, upload: UploadConfig): ZodType {
+  const shape = (schema as any)?._def?.shape ? (schema as any)._def.shape() : undefined;
+
+  if (shape) {
+    return z.object({
+      ...shape,
+      [upload.field]: buildMultipartFieldSchema(upload),
+    });
+  }
+
+  return z.object({
+    [upload.field]: buildMultipartFieldSchema(upload),
+  });
+}
+
+function buildMultipartSchemaFromUpload(upload: UploadConfig): Record<string, unknown> {
+  if (upload.type === 'single') {
+    return {
+      type: 'object',
+      properties: {
+        [upload.field]: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+      required: [upload.field],
+    };
+  }
+
+  return {
+    type: 'object',
+    properties: {
+      [upload.field]: {
+        type: 'array',
+        items: {
+          type: 'string',
+          format: 'binary',
+        },
+        ...(upload.maxFiles !== undefined ? { maxItems: upload.maxFiles } : {}),
+      },
+    },
+    required: [upload.field],
+  };
+}
+
+export function buildOpenApiRequestBody(schema: ZodType | undefined, example: unknown, upload?: UploadConfig): Record<string, unknown> | undefined {
+  if (!schema && !upload) {
     return undefined;
+  }
+
+  if (upload) {
+    const multipartSchema = schema ? mergeMultipartBodySchema(schema, upload) : z.object({ [upload.field]: buildMultipartFieldSchema(upload) });
+
+    return {
+      content: {
+        'multipart/form-data': {
+          schema: multipartSchema,
+          ...(example !== undefined && { example }),
+        },
+      },
+    };
   }
 
   return {

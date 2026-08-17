@@ -148,6 +148,7 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
       params,
       query,
       security,
+      upload,
       openapi,
       middleware = [],
       response,
@@ -203,7 +204,7 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
       deprecated,
     );
 
-    const requestBodyConfig = buildOpenApiRequestBody(requestBodySchema, requestBodyExample);
+    const requestBodyConfig = buildOpenApiRequestBody(requestBodySchema, requestBodyExample, upload);
 
     registry.registerPath({
       method,

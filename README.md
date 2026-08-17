@@ -406,26 +406,27 @@ api.route({
 
 **Config options:**
 
-| Option                | Type                                                                                 | Description                                                                                                                                      |
-| --------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `method`              | `"get" \| "post" \| "put" \| "patch" \| "delete"`                                    | HTTP method                                                                                                                                      |
-| `path`                | `string`                                                                             | Route path, e.g. `/users/:id`                                                                                                                    |
-| `operationId`         | `string` (optional)                                                                  | Manual OpenAPI operation ID override. If omitted, a REST-aware ID is generated automatically                                                     |
-| `summary`             | `string` (optional)                                                                  | Short label shown in Swagger UI                                                                                                                  |
-| `description`         | `string` (optional)                                                                  | Longer description shown in Swagger UI                                                                                                           |
-| `deprecated`          | `boolean` (optional)                                                                 | Mark route as deprecated in OpenAPI spec                                                                                                         |
-| `version`             | `ApiVersion \| false` (optional)                                                     | Route version. Inherits global/router defaults. `false` disables version inheritance for this route. `ApiVersion` is `"2"`, `"10"`, `"v2"`, etc. |
-| `tags`                | `string[]` (optional)                                                                | Groups the route in Swagger UI                                                                                                                   |
-| `body`                | `ZodType \| { schema: ZodType; example?: unknown }` (optional)                       | Validates & types `req.body`. When using the object form, `schema` is required and `example` appears in OpenAPI                                  |
-| `params`              | `ZodType` (optional)                                                                 | Validates & types `req.params`                                                                                                                   |
-| `query`               | `ZodType` (optional)                                                                 | Validates & types `req.query` (supports `z.coerce`)                                                                                              |
-| `security`            | `(SecuritySchemeName \| SecurityRequirement)[]` (optional)                           | Route-level OpenAPI security metadata. Example: `['bearerAuth']` or `[{ oauth2: ['users:read'] }]`                                               |
-| `response`            | `ZodType \| { schema: ZodType; description?: string; example?: unknown }` (optional) | **Single-response shorthand** — validates the return value, documents it under `status`                                                          |
-| `status`              | `number` (optional)                                                                  | Status code used with `response`. Defaults to `200`                                                                                              |
-| `responseDescription` | `string` (optional)                                                                  | Swagger description used with `response`. Defaults to `"Success"`                                                                                |
-| `responses`           | `Record<number, ResponseConfig>` (optional)                                          | **Multi-response map** — declare every status code the route can return (see below). Takes priority over `response`/`status` for documentation   |
-| `openapi`             | `OpenApiOperationOverrides` (optional)                                               | Custom OpenAPI operation metadata (summary, tags, externalDocs, etc.). Merged with auto-generated content                                        |
-| `handler`             | `(req, res) => any`                                                                  | Return the payload directly, or call `res.send()`/`res.json()` yourself                                                                          |
+| Option                | Type                                                                                                     | Description                                                                                                                                      |
+| --------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `method`              | `"get" \| "post" \| "put" \| "patch" \| "delete"`                                                        | HTTP method                                                                                                                                      |
+| `path`                | `string`                                                                                                 | Route path, e.g. `/users/:id`                                                                                                                    |
+| `operationId`         | `string` (optional)                                                                                      | Manual OpenAPI operation ID override. If omitted, a REST-aware ID is generated automatically                                                     |
+| `summary`             | `string` (optional)                                                                                      | Short label shown in Swagger UI                                                                                                                  |
+| `description`         | `string` (optional)                                                                                      | Longer description shown in Swagger UI                                                                                                           |
+| `deprecated`          | `boolean` (optional)                                                                                     | Mark route as deprecated in OpenAPI spec                                                                                                         |
+| `version`             | `ApiVersion \| false` (optional)                                                                         | Route version. Inherits global/router defaults. `false` disables version inheritance for this route. `ApiVersion` is `"2"`, `"10"`, `"v2"`, etc. |
+| `tags`                | `string[]` (optional)                                                                                    | Groups the route in Swagger UI                                                                                                                   |
+| `body`                | `ZodType \| { schema: ZodType; example?: unknown }` (optional)                                           | Validates & types `req.body`. When using the object form, `schema` is required and `example` appears in OpenAPI                                  |
+| `upload`              | `{ type: 'single'; field: string } \| { type: 'multiple'; field: string; maxFiles?: number }` (optional) | Declares multipart uploads and generates `multipart/form-data` requestBody in OpenAPI while remaining middleware-library agnostic                |
+| `params`              | `ZodType` (optional)                                                                                     | Validates & types `req.params`                                                                                                                   |
+| `query`               | `ZodType` (optional)                                                                                     | Validates & types `req.query` (supports `z.coerce`)                                                                                              |
+| `security`            | `(SecuritySchemeName \| SecurityRequirement)[]` (optional)                                               | Route-level OpenAPI security metadata. Example: `['bearerAuth']` or `[{ oauth2: ['users:read'] }]`                                               |
+| `response`            | `ZodType \| { schema: ZodType; description?: string; example?: unknown }` (optional)                     | **Single-response shorthand** — validates the return value, documents it under `status`                                                          |
+| `status`              | `number` (optional)                                                                                      | Status code used with `response`. Defaults to `200`                                                                                              |
+| `responseDescription` | `string` (optional)                                                                                      | Swagger description used with `response`. Defaults to `"Success"`                                                                                |
+| `responses`           | `Record<number, ResponseConfig>` (optional)                                                              | **Multi-response map** — declare every status code the route can return (see below). Takes priority over `response`/`status` for documentation   |
+| `openapi`             | `OpenApiOperationOverrides` (optional)                                                                   | Custom OpenAPI operation metadata (summary, tags, externalDocs, etc.). Merged with auto-generated content                                        |
+| `handler`             | `(req, res) => any`                                                                                      | Return the payload directly, or call `res.send()`/`res.json()` yourself                                                                          |
 
 Returns the `ApiRouter` instance, so calls can be chained.
 
@@ -818,6 +819,98 @@ app.listen(3000);
 
 Direct access to the underlying `OpenAPIRegistry` instance, for advanced cases
 (e.g. registering shared component schemas manually).
+
+---
+
+## Multipart file uploads
+
+`express-zod-router` supports first-class multipart upload metadata while
+staying compatible with existing Express middleware (for example Multer).
+
+### Single file
+
+```ts
+import multer from 'multer';
+
+const upload = multer({ storage: multer.memoryStorage() });
+
+api.post('/users/avatar', {
+  upload: {
+    type: 'single',
+    field: 'avatar',
+  },
+  middleware: [upload.single('avatar')],
+  response: z.object({ filename: z.string(), size: z.number() }),
+  handler: (req) => {
+    if (!req.file) throw new ApiError(400, 'Avatar file is required');
+    return {
+      filename: req.file.originalname,
+      size: req.file.size,
+    };
+  },
+});
+```
+
+### Multiple files
+
+```ts
+import multer from 'multer';
+
+const upload = multer({ storage: multer.memoryStorage() });
+
+api.post('/documents', {
+  upload: {
+    type: 'multiple',
+    field: 'files',
+    maxFiles: 5,
+  },
+  middleware: [upload.array('files', 5)],
+  response: z.object({ count: z.number() }),
+  handler: (req) => {
+    const files = Array.isArray(req.files) ? req.files : [];
+    return { count: files.length };
+  },
+});
+```
+
+### File + form fields
+
+Use `upload` with `body` when the same multipart request contains files and
+validated form fields:
+
+```ts
+import multer from 'multer';
+
+const upload = multer({ storage: multer.memoryStorage() });
+
+api.post('/products/import', {
+  upload: {
+    type: 'single',
+    field: 'image',
+  },
+  body: z.object({
+    name: z.string(),
+    price: z.coerce.number(),
+  }),
+  middleware: [upload.single('image')],
+  response: z.object({ ok: z.boolean() }),
+  handler: (req) => {
+    if (!req.file) throw new ApiError(400, 'Image is required');
+    return { ok: req.body.name.length > 0 && req.body.price > 0 };
+  },
+});
+```
+
+### OpenAPI behavior
+
+When `upload` is configured, the route request body is documented as
+`multipart/form-data` and Swagger UI renders upload controls.
+
+- `single` creates a binary file field (`type: string`, `format: binary`)
+- `multiple` creates a binary array field (`type: array`, `items: binary`)
+- `body + upload` combines file and form schemas under multipart content
+
+The library does not force a specific upload library at runtime.
 
 ---
 

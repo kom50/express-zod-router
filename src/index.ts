@@ -22,6 +22,8 @@ export type {
   OpenApiSecurityRequirement,
   SecurityReference,
   RouteSecurity,
+  UploadConfig,
+  UploadedFile,
 } from './types';
 
 export type { ApiDocsOptions, ApiDocsInfo, ApiDocsServer } from './docs';
