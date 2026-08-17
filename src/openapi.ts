@@ -1,7 +1,7 @@
 import type { Express } from 'express';
 import swaggerUi from 'swagger-ui-express';
 import { OpenAPIRegistry, OpenApiGeneratorV3 } from '@asteasolutions/zod-to-openapi';
-import type { ZodType } from 'zod';
+import { z, type ZodType } from 'zod';
 import type { ApiDocsOptions } from './docs';
 import type { OpenApiOperationOverrides, ResponseConfig, UploadConfig } from './types';
 import { ErrorSchema } from './errors';
@@ -77,6 +77,46 @@ export function buildOpenApiOperationOverrides(overrides?: OpenApiOperationOverr
   return operationOverrides;
 }
 
+function buildMultipartFieldSchema(upload: UploadConfig): ZodType {
+  if (upload.type === 'single') {
+    return z.string().openapi({
+      type: 'string',
+      format: 'binary',
+    });
+  }
+
+  return z
+    .array(
+      z.string().openapi({
+        type: 'string',
+        format: 'binary',
+      }),
+    )
+    .openapi({
+      type: 'array',
+      items: {
+        type: 'string',
+        format: 'binary',
+      },
+      ...(upload.maxFiles !== undefined ? { maxItems: upload.maxFiles } : {}),
+    });
+}
+
+function mergeMultipartBodySchema(schema: ZodType, upload: UploadConfig): ZodType {
+  const shape = (schema as any)?._def?.shape ? (schema as any)._def.shape() : undefined;
+
+  if (shape) {
+    return z.object({
+      ...shape,
+      [upload.field]: buildMultipartFieldSchema(upload),
+    });
+  }
+
+  return z.object({
+    [upload.field]: buildMultipartFieldSchema(upload),
+  });
+}
+
 function buildMultipartSchemaFromUpload(upload: UploadConfig): Record<string, unknown> {
   if (upload.type === 'single') {
     return {
@@ -113,12 +153,7 @@ export function buildOpenApiRequestBody(schema: ZodType | undefined, example: un
   }
 
   if (upload) {
-    const uploadSchema = buildMultipartSchemaFromUpload(upload);
-    const multipartSchema = schema
-      ? {
-          allOf: [schema, uploadSchema],
-        }
-      : uploadSchema;
+    const multipartSchema = schema ? mergeMultipartBodySchema(schema, upload) : z.object({ [upload.field]: buildMultipartFieldSchema(upload) });
 
     return {
       content: {

@@ -175,8 +175,15 @@ describe('multipart upload support', () => {
     const post = specRes.body.paths['/products/import'].post;
     const multipartSchema = post.requestBody.content['multipart/form-data'].schema;
 
-    expect(multipartSchema.allOf).toBeDefined();
-    expect(Array.isArray(multipartSchema.allOf)).toBe(true);
-    expect(multipartSchema.allOf.length).toBe(2);
+    expect(multipartSchema.properties).toBeDefined();
+    expect(multipartSchema.properties.name).toBeDefined();
+    expect(multipartSchema.properties.price).toBeDefined();
+    expect(multipartSchema.properties.image).toEqual({
+      type: 'string',
+      format: 'binary',
+    });
+    expect(multipartSchema.required).toContain('name');
+    expect(multipartSchema.required).toContain('price');
+    expect(multipartSchema.required).toContain('image');
   });
 });
