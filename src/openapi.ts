@@ -3,7 +3,7 @@ import swaggerUi from 'swagger-ui-express';
 import { OpenAPIRegistry, OpenApiGeneratorV3 } from '@asteasolutions/zod-to-openapi';
 import type { ZodType } from 'zod';
 import type { ApiDocsOptions } from './docs';
-import type { OpenApiOperationOverrides, ResponseConfig } from './types';
+import type { OpenApiOperationOverrides, ResponseConfig, UploadConfig } from './types';
 import { ErrorSchema } from './errors';
 
 export function buildOpenApiResponses({
@@ -77,9 +77,57 @@ export function buildOpenApiOperationOverrides(overrides?: OpenApiOperationOverr
   return operationOverrides;
 }
 
-export function buildOpenApiRequestBody(schema: ZodType | undefined, example: unknown): Record<string, unknown> | undefined {
-  if (!schema) {
+function buildMultipartSchemaFromUpload(upload: UploadConfig): Record<string, unknown> {
+  if (upload.type === 'single') {
+    return {
+      type: 'object',
+      properties: {
+        [upload.field]: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+      required: [upload.field],
+    };
+  }
+
+  return {
+    type: 'object',
+    properties: {
+      [upload.field]: {
+        type: 'array',
+        items: {
+          type: 'string',
+          format: 'binary',
+        },
+        ...(upload.maxFiles !== undefined ? { maxItems: upload.maxFiles } : {}),
+      },
+    },
+    required: [upload.field],
+  };
+}
+
+export function buildOpenApiRequestBody(schema: ZodType | undefined, example: unknown, upload?: UploadConfig): Record<string, unknown> | undefined {
+  if (!schema && !upload) {
     return undefined;
+  }
+
+  if (upload) {
+    const uploadSchema = buildMultipartSchemaFromUpload(upload);
+    const multipartSchema = schema
+      ? {
+          allOf: [schema, uploadSchema],
+        }
+      : uploadSchema;
+
+    return {
+      content: {
+        'multipart/form-data': {
+          schema: multipartSchema,
+          ...(example !== undefined && { example }),
+        },
+      },
+    };
   }
 
   return {

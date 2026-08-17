@@ -9,6 +9,29 @@ export type Method = 'get' | 'post' | 'put' | 'patch' | 'delete';
  */
 export type Middleware = RequestHandler;
 
+export interface UploadedFile {
+  fieldname: string;
+  originalname: string;
+  encoding: string;
+  mimetype: string;
+  size: number;
+  destination?: string;
+  filename?: string;
+  path?: string;
+  buffer?: Buffer;
+}
+
+export type UploadConfig =
+  | {
+      type: 'single';
+      field: string;
+    }
+  | {
+      type: 'multiple';
+      field: string;
+      maxFiles?: number;
+    };
+
 export type OpenApiSecuritySchemeObject =
   | {
       type: 'http';
@@ -58,6 +81,8 @@ export type TypedRequest<
   body: B extends ZodType ? z.infer<B> : B extends { schema: infer S extends ZodType } ? z.infer<S> : Request['body'];
   params: P extends ZodType ? z.infer<P> : Request['params'];
   query: Q extends ZodType ? z.infer<Q> : Request['query'];
+  file?: UploadedFile;
+  files?: UploadedFile[] | Record<string, UploadedFile[]>;
 };
 
 export interface RouteSchemaConfig<TSchema extends ZodType = ZodType> {
@@ -139,6 +164,7 @@ export interface RouteConfig<
   params?: P;
   query?: Q;
   security?: RouteSecurity<S>;
+  upload?: UploadConfig;
 
   /**
    * Route-level middleware. Executes after global middleware, before validation.
