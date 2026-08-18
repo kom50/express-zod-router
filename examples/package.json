@@ -1,0 +1,29 @@
+{
+  "name": "express-zod-router-examples",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "example:basic": "tsx basic/index.ts",
+    "example:crud": "tsx crud/index.ts",
+    "example:middleware": "tsx middleware/index.ts",
+    "example:auth": "tsx auth/index.ts",
+    "example:openapi": "tsx openapi/index.ts",
+    "example:versioning": "tsx versioning/index.ts",
+    "example:upload": "tsx upload/index.ts",
+    "example:complete": "tsx complete/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "express-zod-router": "file:..",
+    "multer": "^1.4.5-lts.1",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/multer": "^1.4.12",
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}
