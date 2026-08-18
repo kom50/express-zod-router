@@ -1,0 +1,23 @@
+{
+  "name": "express-zod-router-todo-users-example",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Complete users + todos example for express-zod-router",
+  "scripts": {
+    "dev": "tsx src/server.ts",
+    "start": "node dist/server.js",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "express-zod-router": "file:../..",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^20.0.0",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.4.0"
+  }
+}
