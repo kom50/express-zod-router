@@ -29,6 +29,7 @@ export default defineConfig({
             { text: 'Routes', link: '/api/routes' },
             { text: 'Request Validation', link: '/api/request-validation' },
             { text: 'Responses', link: '/api/responses' },
+            { text: 'Schema', link: '/api/schema' },
             { text: 'Middleware', link: '/api/middleware' },
             { text: 'Errors', link: '/api/errors' },
             { text: 'Versioning', link: '/api/versioning' },
