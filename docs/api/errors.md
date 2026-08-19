@@ -214,8 +214,8 @@ This allows the generated OpenAPI document to describe both successful and error
 See the complete working examples:
 
 - [`examples/auth`](../../examples/auth/index.ts)
-- [`examples/crud`](../../examples/crud)
-- [`examples/complete`](../../examples/complete)
+- [`examples/crud`](../../examples/crud/index.ts)
+- [`examples/complete`](../../examples/complete/index.ts)
 
 ## Summary
 

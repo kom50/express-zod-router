@@ -561,9 +561,9 @@ api.get('/users/:id', {
 
 See the complete working examples:
 
-- [`examples/basic`](../../examples/basic)
-- [`examples/crud`](../../examples/crud)
-- [`examples/complete`](../../examples/complete)
+- [`examples/basic`](../../examples/basic/index.ts)
+- [`examples/crud`](../../examples/crud/index.ts)
+- [`examples/complete`](../../examples/complete/index.ts)
 
 ## Summary
 

@@ -193,9 +193,9 @@ This allows authentication/authorization logic to remain separate from request v
 
 See the complete working examples:
 
-- [`examples/middleware`](../../examples/middleware)
-- [`examples/auth`](../../examples/auth)
-- [`examples/complete`](../../examples/complete)
+- [`examples/middleware`](../../examples/middleware/index.ts)
+- [`examples/auth`](../../examples/auth/index.ts)
+- [`examples/complete`](../../examples/complete/index.ts)
 
 ## Summary
 

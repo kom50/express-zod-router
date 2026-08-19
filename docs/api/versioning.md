@@ -169,7 +169,7 @@ version information can be reflected in generated OpenAPI tags.
 
 See the complete working versioning example:
 
-- [`examples/versioning`](https://github.com/kom50/express-zod-router/tree/main/examples/versioning)
+- [`examples/versioning`](../../examples/versioning/index.ts)
 
 ## Summary
 

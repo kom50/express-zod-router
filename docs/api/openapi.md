@@ -353,7 +353,7 @@ Your documentation UI can then consume:
 
 See the complete OpenAPI example:
 
-- [`examples/openapi`](https://github.com/kom50/express-zod-router/tree/main/examples/openapi)
+- [`examples/openapi`](../../examples/openapi/index.ts)
 
 ## Summary
 

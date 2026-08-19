@@ -311,8 +311,8 @@ api.get('/users/:id', {
 
 See the complete working examples:
 
-- [`examples/crud`](../../examples/crud)
-- [`examples/complete`](../../examples/complete)
+- [`examples/crud`](../../examples/crud/index.ts)
+- [`examples/complete`](../../examples/complete/index.ts)
 
 ## Summary
 

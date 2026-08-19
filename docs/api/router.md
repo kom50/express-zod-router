@@ -144,8 +144,8 @@ v2.get('/users', {
 
 See the complete working examples:
 
-- [`examples/basic`](../../examples/basic)
-- [`examples/versioning`](../../examples/versioning)
+- [`examples/basic`](../../examples/basic/index.ts)
+- [`examples/versioning`](../../examples/versioning/index.ts)
 
 ## Summary
 

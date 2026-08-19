@@ -321,9 +321,9 @@ OpenAPI Schema
 
 See the complete working examples:
 
-- [`examples/crud`](https://github.com/kom50/express-zod-router/tree/main/examples/crud)
-- [`examples/openapi`](https://github.com/kom50/express-zod-router/tree/main/examples/openapi)
-- [`examples/complete`](https://github.com/kom50/express-zod-router/tree/main/examples/complete)
+- [`examples/crud`](../../examples/crud/index.ts)
+- [`examples/openapi`](../../examples/openapi/index.ts)
+- [`examples/complete`](../../examples/complete/index.ts)
 
 ## Summary
 

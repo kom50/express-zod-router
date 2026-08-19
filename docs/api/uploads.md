@@ -284,7 +284,7 @@ api.post('/avatar', {
 
 See the complete working upload example:
 
-- [`examples/upload`](https://github.com/kom50/express-zod-router/tree/main/examples/upload)
+- [`examples/upload`](../../examples/upload/index.ts)
 
 ## Summary
 
