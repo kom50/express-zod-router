@@ -32,7 +32,10 @@
     "test:watch": "vitest",
     "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
-    "typecheck:security": "tsc --noEmit -p tsconfig.type-tests.json"
+    "typecheck:security": "tsc --noEmit -p tsconfig.type-tests.json",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs"
   },
   "engines": {
     "node": ">=18"
@@ -55,6 +58,7 @@
     "multer": "^1.4.5-lts.1",
     "supertest": "^7.2.2",
     "typescript": "^5.0.0",
+    "vitepress": "^1.6.4",
     "vitest": "^4.1.10"
   }
 }
