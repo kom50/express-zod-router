@@ -200,7 +200,7 @@ api.get('/profile', {
 
 See the complete working authentication example:
 
-- [`examples/auth`](../../examples/auth/index.ts)
+- [`examples/auth`](https://github.com/kom50/express-zod-router/blob/main/examples/auth/index.ts)
 
 ## Summary
 

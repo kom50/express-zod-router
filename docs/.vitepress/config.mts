@@ -9,7 +9,7 @@ export default defineConfig({
 
   themeConfig: {
     nav: [
-      { text: 'Guide', link: '/' },
+      { text: 'Guide', link: '/guide' },
       { text: 'API Reference', link: '/api/router' },
       // {
       //   text: 'GitHub',
@@ -49,9 +49,9 @@ export default defineConfig({
       pattern: 'https://github.com/kom50/express-zod-router/edit/main/docs/:path',
       text: 'Edit this page on GitHub',
     },
-    // footer: {
-    //   message: 'Released under the MIT License.',
-    //   copyright: 'Copyright © 2026-present om',
-    // },
+    footer: {
+      message: 'Happy Coding! 🚀',
+      // copyright: 'Copyright © 2026 express-zod-router · Released under the MIT License.',
+    },
   },
 });

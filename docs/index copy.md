@@ -7,15 +7,15 @@ hero:
   tagline: 'Define your API contract once. Get request validation, response validation, TypeScript types, and OpenAPI documentation from the same route definition.'
   actions:
     - theme: brand
-      text: 'Get Started'
+      text: '🚀 Get Started'
       link: /guide/
 
     - theme: alt
-      text: 'API Reference'
+      text: '📖 API Reference'
       link: /api/
 
     - theme: alt
-      text: 'View on GitHub'
+      text: '⭐ View on GitHub'
       link: https://github.com/kom50/express-zod-router
 
 features:
@@ -37,3 +37,12 @@ features:
   - title: '⚡ Express Compatible'
     details: A thin layer around Express that keeps the familiar Express architecture while adding type-safe contracts.
 ---
+
+<div class="badges">
+
+[![npm version](https://img.shields.io/npm/v/express-zod-router)](https://www.npmjs.com/package/express-zod-router)
+[![npm downloads](https://img.shields.io/npm/dm/express-zod-router)](https://www.npmjs.com/package/express-zod-router)
+[![GitHub stars](https://img.shields.io/github/stars/kom50/express-zod-router)](https://github.com/kom50/express-zod-router)
+[![License](https://img.shields.io/npm/l/express-zod-router)](https://github.com/kom50/express-zod-router/blob/main/LICENSE)
+
+</div>

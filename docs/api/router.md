@@ -144,8 +144,8 @@ v2.get('/users', {
 
 See the complete working examples:
 
-- [`examples/basic`](../../examples/basic/index.ts)
-- [`examples/versioning`](../../examples/versioning/index.ts)
+- [`examples/basic`](https://github.com/kom50/express-zod-router/blob/main/examples/basic/index.ts)
+- [`examples/versioning`](https://github.com/kom50/express-zod-router/blob/main/examples/versioning/index.ts)
 
 ## Summary
 

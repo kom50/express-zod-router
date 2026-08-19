@@ -241,8 +241,8 @@ See [Errors](./errors) for the complete error documentation.
 
 See the complete working examples:
 
-- [`examples/crud`](../../examples/crud/index.ts)
-- [`examples/complete`](../../examples/complete/index.ts)
+- [`examples/crud`](https://github.com/kom50/express-zod-router/blob/main/examples/crud/index.ts)
+- [`examples/complete`](https://github.com/kom50/express-zod-router/blob/main/examples/complete/index.ts)
 
 ## Summary
 

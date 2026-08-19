@@ -435,7 +435,7 @@ Swagger UI / JSON endpoint
 
 See the complete working OpenAPI example:
 
-- [`examples/openapi`](../../examples/openapi/index.ts)
+- [`examples/openapi`](https://github.com/kom50/express-zod-router/blob/main/examples/openapi/index.ts)
 
 ## Summary
 

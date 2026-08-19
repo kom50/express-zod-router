@@ -193,9 +193,9 @@ This allows authentication/authorization logic to remain separate from request v
 
 See the complete working examples:
 
-- [`examples/middleware`](../../examples/middleware/index.ts)
-- [`examples/auth`](../../examples/auth/index.ts)
-- [`examples/complete`](../../examples/complete/index.ts)
+- [`examples/middleware`](https://github.com/kom50/express-zod-router/blob/main/examples/middleware/index.ts)
+- [`examples/auth`](https://github.com/kom50/express-zod-router/blob/main/examples/auth/index.ts)
+- [`examples/complete`](https://github.com/kom50/express-zod-router/blob/main/examples/complete/index.ts)
 
 ## Summary
 

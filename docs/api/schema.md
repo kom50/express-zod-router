@@ -518,9 +518,9 @@ A typical schema can be used throughout the API contract.
 
 See the complete working examples:
 
-- [`examples/crud`](../../examples/crud/index.ts)
-- [`examples/openapi`](../../examples/openapi/index.ts)
-- [`examples/complete`](../../examples/complete/index.ts)
+- [`examples/crud`](https://github.com/kom50/express-zod-router/blob/main/examples/crud/index.ts)
+- [`examples/openapi`](https://github.com/kom50/express-zod-router/blob/main/examples/openapi/index.ts)
+- [`examples/complete`](https://github.com/kom50/express-zod-router/blob/main/examples/complete/index.ts)
 
 ## Summary
 
