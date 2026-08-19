@@ -1,113 +1,156 @@
 # OpenAPI
 
-`express-zod-router` generates OpenAPI documentation directly from route definitions, Zod schemas, and route metadata.
+`express-zod-router` generates OpenAPI documentation from route definitions, Zod schemas, and route metadata.
 
 ## Quick example
 
 ```ts
+import express from 'express';
+import { createApiRouter, z } from 'express-zod-router';
+
+const app = express();
+
+const UserSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  email: z.string().email(),
+});
+
 const api = createApiRouter({
   prefix: '/api',
 });
 
 api.get('/users', {
   summary: 'List users',
+  description: 'Returns all users.',
   tags: ['Users'],
-
   response: z.array(UserSchema),
 
   handler: async () => {
-    return listUsers();
+    return [];
+  },
+});
+
+api.docs({
+  path: '/docs',
+  jsonPath: '/openapi.json',
+  info: {
+    title: 'Users API',
+    version: '1.0.0',
+  },
+});
+
+api.mount(app);
+```
+
+The generated documentation is available at:
+
+```text
+GET /docs
+GET /openapi.json
+```
+
+## `api.docs()`
+
+Configures OpenAPI documentation and Swagger UI.
+
+```ts
+api.docs({
+  path: '/docs',
+  jsonPath: '/openapi.json',
+});
+```
+
+### Options
+
+| Option     | Type                      | Description                                         |
+| ---------- | ------------------------- | --------------------------------------------------- |
+| `path`     | `string`                  | URL path where Swagger UI is served.                |
+| `jsonPath` | `string`                  | URL path where the OpenAPI JSON document is served. |
+| `info`     | `ApiDocsInfo`             | OpenAPI API information.                            |
+| `servers`  | `ApiDocsServer[]`         | OpenAPI server definitions.                         |
+| `openapi`  | `Record<string, unknown>` | Additional OpenAPI configuration.                   |
+| `swagger`  | `object`                  | Swagger UI configuration.                           |
+
+## API information
+
+Configure the OpenAPI document information with `info`.
+
+```ts
+api.docs({
+  info: {
+    title: 'Users API',
+    version: '1.0.0',
+    description: 'API for managing users.',
   },
 });
 ```
 
-## OpenAPI generation
-
-The router collects OpenAPI metadata while routes are registered.
+Additional information can be configured:
 
 ```ts
-const api = createApiRouter({
-  prefix: '/api',
-});
+api.docs({
+  info: {
+    title: 'Users API',
+    version: '1.0.0',
+    description: 'API for managing users.',
 
-api.get('/users', {
-  response: z.array(UserSchema),
+    contact: {
+      name: 'API Support',
+      url: 'https://example.com/support',
+      email: 'support@example.com',
+    },
 
-  handler: async () => {
-    return users;
+    license: {
+      name: 'MIT',
+      url: 'https://opensource.org/licenses/MIT',
+    },
   },
 });
 ```
 
-The generated document includes information such as:
+## Servers
 
-- Paths
-- HTTP methods
-- Request parameters
-- Request bodies
-- Response schemas
-- Status codes
-- Tags
-- Summaries
-- Descriptions
-- Security requirements
-- Component schemas
-
-## `api.openapi`
-
-Access the generated OpenAPI document through the router's OpenAPI API.
+Configure the servers included in the generated OpenAPI document.
 
 ```ts
-const document = api.openapi.toJSON();
-```
-
-The returned object can be used with your own documentation tooling.
-
-## JSON output
-
-Generate the OpenAPI document as a JavaScript object:
-
-```ts
-const document = api.openapi.toJSON();
-```
-
-This can be exposed through an Express endpoint:
-
-```ts
-app.get('/openapi.json', (_req, res) => {
-  res.json(api.openapi.toJSON());
+api.docs({
+  servers: [
+    {
+      url: 'https://api.example.com',
+      description: 'Production',
+    },
+    {
+      url: 'https://staging.example.com',
+      description: 'Staging',
+    },
+  ],
 });
 ```
 
-## YAML output
-
-Generate the OpenAPI document as YAML:
+Server variables are also supported:
 
 ```ts
-const yaml = api.openapi.toYAML();
-```
+api.docs({
+  servers: [
+    {
+      url: 'https://{environment}.example.com',
+      description: 'Environment server',
 
-This can be returned as a YAML response:
-
-```ts
-app.get('/openapi.yaml', (_req, res) => {
-  res.type('text/yaml').send(api.openapi.toYAML());
+      variables: {
+        environment: {
+          default: 'api',
+          enum: ['api', 'staging'],
+        },
+      },
+    },
+  ],
 });
 ```
-
-## OpenAPI validation
-
-Validate the generated document before publishing it:
-
-```ts
-const result = api.openapi.validate();
-```
-
-Validation is useful during development and CI to catch invalid OpenAPI definitions.
 
 ## Route metadata
 
-OpenAPI metadata can be declared directly on a route.
+Route metadata is included in the generated OpenAPI document.
 
 ```ts
 api.get('/users/:id', {
@@ -128,21 +171,22 @@ api.get('/users/:id', {
 });
 ```
 
+Supported route metadata includes:
+
+- `operationId`
+- `summary`
+- `description`
+- `tags`
+- `deprecated`
+- `security`
+- `version`
+- `openapi`
+
+See the [Routes API](/api/routes) for the complete route configuration.
+
 ## Operation IDs
 
-You can explicitly define an operation ID:
-
-```ts
-api.get('/users', {
-  operationId: 'listUsers',
-
-  handler: async () => {
-    return users;
-  },
-});
-```
-
-The router can also generate operation IDs using the configured strategy.
+Configure operation ID generation when creating the API router.
 
 ```ts
 const api = createApiRouter({
@@ -154,7 +198,7 @@ const api = createApiRouter({
 });
 ```
 
-Supported strategies:
+Supported strategies are:
 
 ```ts
 'rest';
@@ -162,29 +206,23 @@ Supported strategies:
 'explicit';
 ```
 
-## Tags
-
-Use `tags` to organize operations.
+An operation ID can also be explicitly defined on a route:
 
 ```ts
 api.get('/users', {
-  tags: ['Users'],
+  operationId: 'listUsers',
 
   handler: async () => {
-    return users;
+    return [];
   },
 });
 ```
 
-Multiple tags are supported:
-
-```ts
-tags: ['Users', 'Administration'];
-```
-
 ## Request schemas
 
-Zod request schemas are converted into OpenAPI request definitions.
+Zod schemas defined on routes are converted into OpenAPI request schemas.
+
+### Body
 
 ```ts
 api.post('/users', {
@@ -196,15 +234,26 @@ api.post('/users', {
 });
 ```
 
-Query and parameter schemas are also included:
+### Parameters
 
 ```ts
 api.get('/users/:id', {
   params: UserParamsSchema,
-  query: UserQuerySchema,
 
   handler: async (req) => {
     return getUser(req.params.id);
+  },
+});
+```
+
+### Query
+
+```ts
+api.get('/users', {
+  query: UserQuerySchema,
+
+  handler: async (req) => {
+    return listUsers(req.query);
   },
 });
 ```
@@ -223,7 +272,7 @@ api.get('/users/:id', {
 });
 ```
 
-Multiple response statuses can also be documented:
+Multiple response statuses can be documented with `responses`.
 
 ```ts
 api.get('/users/:id', {
@@ -244,9 +293,9 @@ api.get('/users/:id', {
 });
 ```
 
-## Examples
+## Request examples
 
-Request and response examples can be added to route definitions.
+Use `bodyExample` to provide an example request body.
 
 ```ts
 api.post('/users', {
@@ -257,6 +306,18 @@ api.post('/users', {
     email: 'om@example.com',
   },
 
+  handler: async (req) => {
+    return createUser(req.body);
+  },
+});
+```
+
+## Response examples
+
+Response examples can be configured through the response configuration.
+
+```ts
+api.get('/users/:id', {
   response: {
     schema: UserSchema,
     example: {
@@ -266,15 +327,15 @@ api.post('/users', {
     },
   },
 
-  handler: async (req) => {
-    return createUser(req.body);
+  handler: async () => {
+    return user;
   },
 });
 ```
 
-## Security documentation
+## Security
 
-Register security schemes:
+Security requirements can be included in OpenAPI documentation.
 
 ```ts
 const api = createApiRouter({
@@ -288,7 +349,7 @@ const api = createApiRouter({
 });
 ```
 
-Reference them from routes:
+Apply a security scheme to a route:
 
 ```ts
 api.get('/profile', {
@@ -300,69 +361,90 @@ api.get('/profile', {
 });
 ```
 
-Security metadata is included in the generated OpenAPI document.
-
-## Reusable schemas
-
-Reusable schemas can be registered as OpenAPI components.
-
-```ts
-api.schema('User', UserSchema);
-```
-
-The schema can then be reused across generated operations.
-
-This helps keep larger API specifications consistent and avoids unnecessary schema duplication.
-
-## Components
-
-Components can be registered for reusable OpenAPI definitions.
-
-```ts
-api.component('schemas', {
-  User: UserSchema,
-});
-```
-
-Components are useful for shared definitions such as:
-
-- Schemas
-- Security schemes
-- Reusable responses
-- Other OpenAPI components supported by the router
+See the [Security API](/api/security) for more information.
 
 ## Swagger UI
 
-The generated OpenAPI document can be connected to Swagger UI or another OpenAPI-compatible documentation interface.
-
-For example:
+Swagger UI is configured through the `swagger` option.
 
 ```ts
-app.get('/openapi.json', (_req, res) => {
-  res.json(api.openapi.toJSON());
+api.docs({
+  path: '/docs',
+
+  swagger: {
+    explorer: true,
+    customSiteTitle: 'Users API',
+    customCss: `
+      .swagger-ui .topbar {
+        display: none;
+      }
+    `,
+  },
 });
 ```
 
-Your documentation UI can then consume:
+Supported Swagger UI configuration includes:
+
+- `explorer`
+- `customCss`
+- `customSiteTitle`
+- `customfavIcon`
+- `options`
+
+## Additional OpenAPI configuration
+
+Additional OpenAPI configuration can be provided through the `openapi` option.
+
+```ts
+api.docs({
+  openapi: {
+    openapi: '3.0.3',
+  },
+});
+```
+
+## OpenAPI registry
+
+The router exposes its underlying OpenAPI registry through `api.registry`.
+
+```ts
+const registry = api.registry;
+```
+
+The registry is provided by `@asteasolutions/zod-to-openapi`.
+
+This is intended for advanced integrations with the underlying OpenAPI tooling.
+
+## OpenAPI generation
+
+OpenAPI information is collected from registered routes and their schemas.
 
 ```text
-/api/openapi.json
+Route definition
+      ↓
+Zod schemas + route metadata
+      ↓
+OpenAPI registry
+      ↓
+OpenAPI document
+      ↓
+Swagger UI / JSON endpoint
 ```
 
 ## Example
 
-See the complete OpenAPI example:
+See the complete working OpenAPI example:
 
 - [`examples/openapi`](../../examples/openapi/index.ts)
 
 ## Summary
 
-- OpenAPI is generated directly from route definitions.
-- Zod schemas provide request and response schemas.
-- Use route metadata for summaries, descriptions, tags, and operation IDs.
-- Use `api.openapi.toJSON()` for JSON output.
-- Use `api.openapi.toYAML()` for YAML output.
-- Use `api.openapi.validate()` to validate the generated document.
-- Register reusable schemas with `api.schema()`.
-- Configure authentication documentation with `securitySchemes` and `security`.
-- The generated document can be consumed by Swagger UI and other OpenAPI tools.
+- Use `api.docs()` to configure OpenAPI documentation.
+- Use `info` to configure API metadata.
+- Use `servers` to configure OpenAPI servers.
+- Use route metadata to customize generated documentation.
+- Use Zod schemas for request and response documentation.
+- Use `operationId` to control OpenAPI operation IDs.
+- Use `security` and `securitySchemes` for OpenAPI security requirements.
+- Use `swagger` to customize Swagger UI.
+- Use `api.registry` for advanced OpenAPI integrations.

@@ -1,11 +1,13 @@
-# Schemas
+# Schema
 
-`express-zod-router` uses Zod schemas as the single source of truth for request validation, response validation, TypeScript inference, and OpenAPI generation.
+`express-zod-router` uses Zod schemas as the contract for request validation, response validation, TypeScript inference, and OpenAPI generation.
+
+Schemas are defined with Zod and passed directly to route configuration.
 
 ## Quick example
 
 ```ts
-import { z } from 'zod';
+import { z } from 'express-zod-router';
 
 const UserSchema = z.object({
   id: z.string(),
@@ -26,9 +28,44 @@ api.get('/users/:id', {
 });
 ```
 
-## Schema definition
+The same schema can be used for:
 
-Define schemas with Zod:
+- Runtime validation
+- TypeScript type inference
+- OpenAPI schema generation
+
+## Schema registration
+
+Schemas are defined using Zod and passed directly to route options.
+
+There is no separate `api.schema()` registration method.
+
+```ts
+const UserSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+});
+
+api.get('/users/:id', {
+  response: UserSchema,
+
+  handler: async () => {
+    return user;
+  },
+});
+```
+
+Supported schema options include:
+
+- `body`
+- `params`
+- `query`
+- `response`
+- `responses`
+
+## Define a schema
+
+Use standard Zod APIs to define reusable schemas.
 
 ```ts
 const CreateUserSchema = z.object({
@@ -37,15 +74,7 @@ const CreateUserSchema = z.object({
 });
 ```
 
-The same schema can be used for:
-
-- Runtime validation
-- TypeScript inference
-- OpenAPI generation
-
-## Request schemas
-
-### Body schema
+Use the schema in a route:
 
 ```ts
 api.post('/users', {
@@ -57,7 +86,32 @@ api.post('/users', {
 });
 ```
 
-### Query schema
+## Request schemas
+
+Schemas can be used to validate different parts of an incoming request.
+
+### Body
+
+Use `body` to validate the request body.
+
+```ts
+const CreateUserSchema = z.object({
+  name: z.string(),
+  email: z.string().email(),
+});
+
+api.post('/users', {
+  body: CreateUserSchema,
+
+  handler: async (req) => {
+    return createUser(req.body);
+  },
+});
+```
+
+### Query
+
+Use `query` to validate query parameters.
 
 ```ts
 const UserQuerySchema = z.object({
@@ -74,7 +128,9 @@ api.get('/users', {
 });
 ```
 
-### Parameter schema
+### Parameters
+
+Use `params` to validate route parameters.
 
 ```ts
 const UserParamsSchema = z.object({
@@ -92,7 +148,7 @@ api.get('/users/:id', {
 
 ## Response schemas
 
-Use Zod schemas to define response contracts.
+Use a Zod schema with `response` to define and validate a route response.
 
 ```ts
 const UserResponseSchema = z.object({
@@ -109,9 +165,53 @@ api.get('/users/:id', {
 });
 ```
 
+The returned value is validated against the schema before it is sent to the client.
+
+## Response configuration
+
+A response can include a schema, description, and example.
+
+```ts
+api.get('/users/:id', {
+  response: {
+    schema: UserResponseSchema,
+    description: 'User details',
+    example: {
+      id: '123',
+      name: 'Om',
+    },
+  },
+
+  handler: async () => {
+    return user;
+  },
+});
+```
+
+For multiple response statuses, use `responses`.
+
+```ts
+api.get('/users/:id', {
+  responses: {
+    200: {
+      schema: UserResponseSchema,
+      description: 'User found',
+    },
+
+    404: {
+      description: 'User not found',
+    },
+  },
+
+  handler: async () => {
+    return user;
+  },
+});
+```
+
 ## Schema composition
 
-Zod schemas can be composed using standard Zod APIs.
+Use standard Zod methods to compose reusable schemas.
 
 ### Extend
 
@@ -150,7 +250,7 @@ const UpdateUserSchema = UserSchema.partial();
 
 ## Arrays
 
-Define collection responses with `z.array()`.
+Use `z.array()` for collection schemas.
 
 ```ts
 const UsersSchema = z.array(UserSchema);
@@ -183,7 +283,7 @@ const UserSchema = z.object({
 
 ## Optional and nullable fields
 
-Use standard Zod modifiers.
+Use standard Zod modifiers for optional and nullable values.
 
 ```ts
 const UserSchema = z.object({
@@ -193,18 +293,24 @@ const UserSchema = z.object({
 });
 ```
 
-## Defaults
+## Default values
 
-Default values can be defined with Zod.
+Default values are useful for query parameters.
 
 ```ts
 const PaginationSchema = z.object({
   page: z.coerce.number().default(1),
   limit: z.coerce.number().default(20),
 });
-```
 
-This is particularly useful for query parameters.
+api.get('/users', {
+  query: PaginationSchema,
+
+  handler: async (req) => {
+    return listUsers(req.query);
+  },
+});
+```
 
 ## Enums
 
@@ -223,7 +329,7 @@ The enum is also represented in the generated OpenAPI schema.
 
 ## Type inference
 
-Zod schemas provide TypeScript types through `z.infer`.
+Use `z.infer` to derive a TypeScript type from a Zod schema.
 
 ```ts
 const UserSchema = z.object({
@@ -234,45 +340,11 @@ const UserSchema = z.object({
 type User = z.infer<typeof UserSchema>;
 ```
 
-This allows the same schema to define both runtime validation and compile-time types.
-
-## Reusable OpenAPI schemas
-
-Register reusable schemas with the API router.
-
-```ts
-api.schema('User', UserSchema);
-```
-
-The schema can then be reused in generated OpenAPI documentation.
-
-For larger applications, registering common schemas helps keep the generated specification consistent.
-
-## Schema naming
-
-Use descriptive names for reusable schemas.
-
-```ts
-api.schema('User', UserSchema);
-api.schema('CreateUser', CreateUserSchema);
-api.schema('UpdateUser', UpdateUserSchema);
-```
-
-A common naming convention is:
-
-```text
-Entity
-CreateEntity
-UpdateEntity
-EntityResponse
-EntityListResponse
-```
+This allows the same schema to provide runtime validation and compile-time types.
 
 ## Schema validation
 
-Schemas are evaluated at runtime when they are used for request or response validation.
-
-For example:
+When a schema is provided to a route, it is used for runtime validation.
 
 ```ts
 const CreateUserSchema = z.object({
@@ -289,13 +361,88 @@ api.post('/users', {
 });
 ```
 
-Invalid input is rejected before the handler receives the request.
+Invalid request data is rejected before the handler receives the validated request.
+
+Response schemas are similarly used to validate returned data.
+
+## OpenAPI schema names
+
+Zod schemas can be given an explicit name for OpenAPI documentation using `.openapi()`.
+
+```ts
+const UserSchema = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+  })
+  .openapi('User');
+```
+
+The name is used when the schema is represented in the generated OpenAPI document.
+
+For example:
+
+```yaml
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+      required:
+        - id
+        - name
+```
+
+The named schema can then be used normally in a route:
+
+```ts
+api.get('/users/:id', {
+  response: UserSchema,
+
+  handler: async () => {
+    return {
+      id: '123',
+      name: 'Om',
+    };
+  },
+});
+```
+
+### OpenAPI metadata
+
+`.openapi()` can also be used to provide additional OpenAPI metadata.
+
+```ts
+const UserSchema = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+  })
+  .openapi('User', {
+    description: 'A user in the system',
+  });
+```
+
+This keeps the Zod schema and its OpenAPI metadata together.
+
+::: tip
+`.openapi()` is provided by the Zod OpenAPI integration used by `express-zod-router`. It is not a separate `express-zod-router` schema registration API.
+:::
 
 ## OpenAPI generation
 
-Zod schemas are converted into OpenAPI-compatible schemas when they are used in route definitions.
+Schemas used in route definitions are also used to generate OpenAPI schemas.
 
 ```ts
+const UserSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+});
+
 api.get('/users', {
   response: z.array(UserSchema),
 
@@ -305,16 +452,66 @@ api.get('/users', {
 });
 ```
 
-This means a single schema can provide:
+The schema therefore acts as a shared contract:
 
 ```text
 Zod Schema
     ↓
 Runtime Validation
     ↓
-TypeScript Type
+TypeScript Inference
     ↓
-OpenAPI Schema
+OpenAPI Generation
+```
+
+## Schema organization
+
+Schemas can be kept in separate modules and reused across route modules.
+
+```text
+src/
+├── schemas/
+│   ├── user.schema.ts
+│   ├── auth.schema.ts
+│   └── pagination.schema.ts
+│
+└── routes/
+    ├── users.routes.ts
+    └── auth.routes.ts
+```
+
+Example:
+
+```ts
+import { UserSchema, CreateUserSchema } from '../schemas/user.schema';
+
+export function usersRoutes(api: ApiRouter) {
+  api.post('/users', {
+    body: CreateUserSchema,
+    response: UserSchema,
+
+    handler: async (req) => {
+      return createUser(req.body);
+    },
+  });
+}
+```
+
+## Schema flow
+
+A typical schema can be used throughout the API contract.
+
+```text
+                Zod Schema
+                    │
+          ┌─────────┼─────────┐
+          ↓         ↓         ↓
+       Runtime   TypeScript  OpenAPI
+      validation  inference  generation
+          │         │         │
+          └─────────┼─────────┘
+                    ↓
+               API Contract
 ```
 
 ## Example
@@ -327,10 +524,10 @@ See the complete working examples:
 
 ## Summary
 
-- Use Zod schemas as the API contract.
-- The same schema can provide runtime validation and TypeScript inference.
-- Request schemas can be used for `body`, `params`, and `query`.
-- Response schemas define and validate returned data.
-- Standard Zod composition works for complex schemas.
-- Reusable schemas can be registered with `api.schema()`.
-- Zod schemas are converted into OpenAPI schemas automatically.
+- Use Zod to define API schemas.
+- Use schemas for request validation.
+- Use schemas for response validation.
+- Use `z.infer` for TypeScript types.
+- Use reusable schemas across route modules.
+- Use Zod composition methods to build complex schemas.
+- Schemas are automatically used for OpenAPI generation.
