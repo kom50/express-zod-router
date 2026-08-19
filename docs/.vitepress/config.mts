@@ -10,13 +10,13 @@ export default defineConfig({
   themeConfig: {
     nav: [
       { text: 'Guide', link: '/guide' },
-      { text: 'API Reference', link: '/api/router' },
-      // {
-      //   text: 'GitHub',
-      //   link: 'https://github.com/kom50/express-zod-router',
-      // },
+      { text: 'API Reference', link: '/api' },
+      {
+        text: 'GitHub',
+        link: 'https://github.com/kom50/express-zod-router',
+      },
     ],
-    socialLinks: [{ icon: 'github', link: 'https://github.com/kom50/express-zod-router' }],
+    // socialLinks: [{ icon: 'github', link: 'https://github.com/kom50/express-zod-router' }],
     search: {
       provider: 'local',
     },
