@@ -5,6 +5,11 @@ hero:
   name: 'express-zod-router'
   text: 'Type-safe Express APIs with Zod'
   tagline: 'Define your API contract once. Get request validation, response validation, TypeScript types, and OpenAPI documentation from the same route definition.'
+  image:
+    src: ./logo.png
+    alt: express-zod-router logo
+    dark: ./logo-dark.png
+
   actions:
     - theme: brand
       text: 'Get Started'

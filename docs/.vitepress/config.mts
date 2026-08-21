@@ -15,6 +15,10 @@ export default defineConfig({
         text: 'GitHub',
         link: 'https://github.com/kom50/express-zod-router',
       },
+      {
+        text: 'NPM',
+        link: 'https://www.npmjs.com/package/express-zod-router',
+      },
     ],
     // socialLinks: [{ icon: 'github', link: 'https://github.com/kom50/express-zod-router' }],
     search: {

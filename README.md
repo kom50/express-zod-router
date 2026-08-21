@@ -1,5 +1,7 @@
 # express-zod-router
 
+![Alternative text](./public/icons/logo.png)
+
 > **Declare once, validate everywhere.**
 
 A FastAPI-style routing layer for Express that eliminates boilerplate by using Zod schemas as a single source of truth for validation, types, and API documentation.
