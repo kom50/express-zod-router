@@ -1,10 +1,12 @@
 # express-zod-router
 
-![Alternative text](./public/icons/logo.png)
+![express-zod-router logo](./public/icons/logo.png)
 
 > **Declare once, validate everywhere.**
 
-A FastAPI-style routing layer for Express that eliminates boilerplate by using Zod schemas as a single source of truth for validation, types, and API documentation.
+A FastAPI-inspired routing layer for Express that uses Zod schemas as a single source of truth for validation, TypeScript types, and OpenAPI documentation.
+
+**Documentation:** [Guide and API reference](https://kom50.github.io/express-zod-router/api) · [Runnable examples](./examples/README.md) · [Changelog](./CHANGELOG.md)
 
 ## The Problem
 
@@ -73,7 +75,7 @@ Benefits:
 - ✅ **Full TypeScript inference** → safe refactoring
 - ✅ **Auto-generated OpenAPI** → live Swagger UI
 - ✅ **Router groups & middleware** → clean organization
-- ✅ **Express compatible** → drop-in replacement
+- ✅ **Express compatible** → works with Express apps and middleware
 
 ## Install
 
@@ -90,10 +92,10 @@ npm test
 npm run test:watch
 ```
 
-For a quick compile check without the full test run:
+For a type-check without emitting build files:
 
 ```bash
-npm run build
+npm run typecheck
 ```
 
 ---
@@ -136,6 +138,8 @@ const TodoSchema = z
     completed: z.boolean(),
   })
   .openapi('Todo');
+
+const todos: z.infer<typeof TodoSchema>[] = [];
 
 export function todoRoutes(api: ApiRouter) {
   const todo = api.createRouter('/todos', ['Todos']);
@@ -265,9 +269,9 @@ Middleware executes in order: global → router → route → validation → han
 - **Router Groups** — Organize routes with `createRouter(prefix, tags)`
 - **Multi-Level Middleware** — Global, router-scoped, and route-level middleware
 - **Error Handling** — Unified error handler with custom `ApiError`
-- **Express Compatible** — Works with standard Express middleware
-- **Zero Breaking Changes** — Backwards compatible with Express
-- **Production Ready** — Used in production APIs
+- **Express Compatible** — Works with standard Express middleware and apps
+- **Clear Response Model** — Return data for automatic JSON responses, or use `res` when you need direct control
+- **Well Tested** — Integration and type-level tests cover the public API
 
 ---
 
@@ -291,6 +295,8 @@ export const CreateUserSchema = UserSchema.omit({ id: true });
 
 ### 2. Create route modules
 
+For a complete, runnable application with controllers, services, and repositories, see [examples/todo-users](https://github.com/kom50/express-zod-router/tree/main/examples/todo-users). The following keeps those application-specific functions intentionally abbreviated.
+
 ```ts
 // routes/users.routes.ts
 import { z, type ApiRouter } from 'express-zod-router';
@@ -300,7 +306,7 @@ export function userRoutes(api: ApiRouter) {
   const users = api.createRouter({
     path: '/users',
     tags: ['Users'],
-    middleware: [authenticate], // optional
+    // middleware: [authenticate], // optional application middleware
   });
 
   users.get('/:id', {
@@ -330,7 +336,7 @@ app.use(express.json());
 
 const api = createApiRouter({
   prefix: '/api',
-  middleware: [requestId(), logger()],
+  // middleware: [requestId(), logger()], // optional application middleware
 });
 
 api.routes([userRoutes]);
