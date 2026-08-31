@@ -5,6 +5,8 @@ import { z, type ZodType } from 'zod';
 import type { ApiDocsOptions } from './docs';
 import type { OpenApiOperationOverrides, ResponseConfig, UploadConfig } from './types';
 import { ErrorSchema } from './errors';
+import type { NormalizedRoute } from './route-contract';
+import { convertExpressPath } from './helpers';
 
 export function buildOpenApiResponses({
   response,
@@ -202,6 +204,54 @@ export function mergeOpenApiDocument(base: Record<string, unknown>, overrides: R
   }
 
   return merged;
+}
+
+/** OpenAPI adapter. It receives a normalized route rather than RouteConfig. */
+export function registerNormalizedRoute(registry: OpenAPIRegistry, route: NormalizedRoute): void {
+  const requestBody = route.request.body;
+  const requestBodyConfig = buildOpenApiRequestBody(requestBody?.schema, requestBody?.example, route.request.upload);
+  const operation = mergeOpenApiOperation(
+    {
+      operationId: route.metadata.operationId,
+      ...(route.metadata.summary && { summary: route.metadata.summary }),
+      ...(route.metadata.description && { description: route.metadata.description }),
+      ...(route.metadata.tags && { tags: route.metadata.tags }),
+      ...(route.security && { security: route.security }),
+      ...(route.metadata.deprecated !== undefined && { deprecated: route.metadata.deprecated }),
+    },
+    route.metadata.openapi,
+    route.metadata.deprecated,
+  );
+
+  registry.registerPath({
+    method: route.method,
+    path: convertExpressPath(route.path),
+    request: {
+      ...(requestBodyConfig && { body: requestBodyConfig }),
+      ...(route.request.params && { params: route.request.params }),
+      ...(route.request.query && { query: route.request.query }),
+    } as NonNullable<Parameters<typeof registry.registerPath>[0]['request']>,
+    ...operation,
+    responses: {
+      ...Object.fromEntries(
+        route.response.definitions.map((definition) => [
+          definition.status,
+          {
+            description: definition.description,
+            ...(definition.schema && {
+              content: {
+                [definition.contentType]: {
+                  schema: definition.schema,
+                  ...(definition.example !== undefined && { example: definition.example }),
+                },
+              },
+            }),
+          },
+        ]),
+      ),
+      400: defaultValidationErrorResponse,
+    },
+  });
 }
 
 export function mountDocs(app: Express, options: ApiDocsOptions, registry: OpenAPIRegistry): void {

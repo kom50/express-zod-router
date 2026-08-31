@@ -1,13 +1,13 @@
-import type { Express, Request, Response, NextFunction, RequestHandler } from 'express';
+import type { Express, RequestHandler } from 'express';
 import { OpenAPIRegistry } from '@asteasolutions/zod-to-openapi';
 import type { ZodType } from 'zod';
 
-import { handleRouteError } from './errors';
 import type { ApiDocsOptions } from './docs';
-import { convertExpressPath, joinPaths, normalizePrefix } from './helpers';
+import { joinPaths, normalizePrefix } from './helpers';
 import { chainMiddleware } from './middleware';
-import { generateOperationId } from './operation-id';
-import { buildOpenApiRequestBody, buildOpenApiResponses, defaultValidationErrorResponse, mergeOpenApiOperation, mountDocs } from './openapi';
+import { mountDocs, registerNormalizedRoute } from './openapi';
+import { normalizeRoute } from './normalize-route';
+import { createRuntimeHandler } from './runtime';
 import type {
   ApiVersion,
   ApiRouteModule,
@@ -15,16 +15,12 @@ import type {
   CreateRouterOptionsFor,
   Middleware,
   Method,
-  OpenApiSecurityRequirement,
   ResponseConfig,
-  RouteResponseConfig,
-  RouteSchemaConfig,
   RouteConfig,
   ScopedRouterConvenienceConfig,
   ScopedRouterMethodSignature,
   RouteSecurity,
   SecuritySchemes,
-  TypedRequest,
   VersionConfig,
 } from './types';
 
@@ -40,44 +36,6 @@ export interface CreateApiRouterOptions<S extends SecuritySchemes = SecuritySche
   };
 }
 
-function normalizeSecurity<S extends SecuritySchemes>(security?: RouteSecurity<S>): OpenApiSecurityRequirement[] | undefined {
-  if (!security) {
-    return undefined;
-  }
-
-  return security.map((entry) => {
-    if (typeof entry === 'string') {
-      return { [entry]: [] } as OpenApiSecurityRequirement;
-    }
-
-    return entry;
-  });
-}
-
-function unwrapSchemaConfig<T extends ZodType | undefined>(
-  value?: T | RouteSchemaConfig<NonNullable<T>>,
-  fallbackExample?: unknown,
-): { schema?: NonNullable<T>; example?: unknown } {
-  if (value && typeof value === 'object' && 'schema' in value) {
-    const config = value as RouteSchemaConfig<NonNullable<T>>;
-    return { schema: config.schema, example: config.example };
-  }
-
-  return { schema: value, example: fallbackExample };
-}
-
-function unwrapResponseConfig<T extends ZodType | undefined>(
-  value?: T | RouteResponseConfig<NonNullable<T>>,
-  fallbackExample?: unknown,
-): { schema?: NonNullable<T>; example?: unknown; description?: string } {
-  if (value && typeof value === 'object' && 'schema' in value) {
-    const config = value as RouteResponseConfig<NonNullable<T>>;
-    return { schema: config.schema, example: config.example, description: config.description };
-  }
-
-  return { schema: value, example: fallbackExample, description: undefined };
-}
-
 export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(options: CreateApiRouterOptions<S> = {}): ApiRouter<S> {
   const registry = new OpenAPIRegistry();
   const registeredRoutes: RegisteredRoute[] = [];
@@ -87,37 +45,8 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
   const securitySchemes = options.securitySchemes;
   const operationIdStrategy = options.openapi?.operationId?.strategy ?? 'rest';
   const versionConfig = options.version;
-  const normalizedSupportedVersions = versionConfig?.supportedVersions?.map((version) => normalizeVersion(version));
   let docsOptions: ApiDocsOptions | undefined;
   const tagDescriptions = new Map<string, { description?: string; externalDocs?: { url: string; description?: string } }>();
-
-  function normalizeVersion(version: ApiVersion): string {
-    const trimmedVersion = version.trim();
-    if (!trimmedVersion) {
-      throw new Error('Version cannot be empty');
-    }
-
-    return trimmedVersion.startsWith('v') ? trimmedVersion : `v${trimmedVersion}`;
-  }
-
-  function resolveVersion(version: ApiVersion | false | undefined): string | undefined {
-    if (version === false) {
-      return undefined;
-    }
-
-    const versionToUse = version ?? versionConfig?.defaultVersion;
-    if (!versionToUse) {
-      return undefined;
-    }
-
-    const normalizedVersion = normalizeVersion(versionToUse);
-
-    if (normalizedSupportedVersions && !normalizedSupportedVersions.includes(normalizedVersion)) {
-      throw new Error(`Unsupported version: ${normalizedVersion}`);
-    }
-
-    return normalizedVersion;
-  }
 
   function route<
     B extends ZodType | undefined = undefined,
@@ -136,174 +65,25 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
     R extends ZodType | undefined = undefined,
     Rs extends Record<number, ResponseConfig> | undefined = undefined,
   >(method: Method, path: string, config: Omit<RouteConfig<S, B, P, Q, R, Rs>, 'method' | 'path'>): ApiRouter<S> {
-    const {
-      operationId,
-      summary,
-      description,
-      deprecated,
-      version,
-      tags,
-      body,
-      bodyExample,
-      params,
-      query,
-      security,
-      upload,
-      openapi,
-      middleware = [],
-      response,
-      responseExample,
-      responses,
-      status = 200,
-      responseDescription = 'Success',
-      handler,
-    } = config;
-
-    const resolvedVersion = resolveVersion(version);
-    const basePath = resolvedVersion ? joinPaths(prefix, `/${resolvedVersion}`) : prefix;
-    const fullPath = joinPaths(basePath, path);
-    const normalizedSecurity = normalizeSecurity(security);
-    const finalOperationId = generateOperationId(method, path, handler as Function, operationId, operationIdStrategy);
-    const { schema: requestBodySchema, example: requestBodyExample } = unwrapSchemaConfig(body, bodyExample);
-    const {
-      schema: responseSchema,
-      example: responseExampleFromConfig,
-      description: responseDescriptionFromConfig,
-    } = unwrapResponseConfig(response, responseExample);
-
-    if (operationIds.has(finalOperationId)) {
-      throw new Error(`Duplicate operationId detected: ${finalOperationId}`);
-    }
-    operationIds.add(finalOperationId);
-    const routeTags = (() => {
-      if (!resolvedVersion || versionConfig?.autoTag === false) {
-        return tags;
-      }
-
-      if (tags && tags.length > 0) {
-        return tags;
-      }
-
-      const withVersionTag = tags ? [...tags] : [];
-      if (!withVersionTag.includes(resolvedVersion)) {
-        withVersionTag.unshift(resolvedVersion);
-      }
-      return withVersionTag;
-    })();
-
-    const operation = mergeOpenApiOperation(
-      {
-        operationId: finalOperationId,
-        ...(summary && { summary }),
-        ...(description && { description }),
-        ...(routeTags && { tags: routeTags }),
-        ...(normalizedSecurity && { security: normalizedSecurity }),
-        ...(deprecated !== undefined && { deprecated }),
-      },
-      openapi,
-      deprecated,
-    );
-
-    const requestBodyConfig = buildOpenApiRequestBody(requestBodySchema, requestBodyExample, upload);
-
-    registry.registerPath({
+    const normalizedRoute = normalizeRoute({
       method,
-      path: convertExpressPath(fullPath),
-      request: {
-        ...(requestBodyConfig && { body: requestBodyConfig }),
-        ...(params && { params }),
-        ...(query && { query }),
-      } as NonNullable<Parameters<typeof registry.registerPath>[0]['request']>,
-      ...operation,
-      responses: {
-        ...buildOpenApiResponses({
-          response: responseSchema,
-          responseExample: responseExampleFromConfig,
-          responses,
-          status,
-          responseDescription: responseDescriptionFromConfig ?? responseDescription,
-        }),
-        400: defaultValidationErrorResponse,
-      },
+      path,
+      config,
+      prefix,
+      version: versionConfig,
+      operationIdStrategy,
     });
+    if (operationIds.has(normalizedRoute.metadata.operationId)) {
+      throw new Error(`Duplicate operationId detected: ${normalizedRoute.metadata.operationId}`);
+    }
+    operationIds.add(normalizedRoute.metadata.operationId);
+    registerNormalizedRoute(registry, normalizedRoute);
 
-    const coreHandler: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
-      try {
-        if (requestBodySchema) req.body = requestBodySchema.parse(req.body);
-        if (params) req.params = params.parse(req.params) as typeof req.params;
-
-        let handlerReq = req;
-        if (query) {
-          handlerReq = Object.create(req);
-          Object.defineProperty(handlerReq, 'query', {
-            value: query.parse(req.query),
-            writable: true,
-            enumerable: true,
-            configurable: true,
-          });
-        }
-
-        const typedReq = handlerReq as TypedRequest<B, P, Q>;
-        const result = await handler(typedReq, res);
-
-        if (res.headersSent || res.writableEnded) {
-          return;
-        }
-
-        let responseStatus: number;
-        let rawBody: unknown;
-
-        if (responses) {
-          if (result === undefined) {
-            if (res.headersSent || res.writableEnded) {
-              return;
-            }
-
-            throw new Error('Handler with `responses` must return `reply(status, body)` (or send a response via `res`).');
-          }
-
-          if (typeof result === 'object' && result !== null && 'status' in result) {
-            const r = result as { status: number; body?: unknown };
-            responseStatus = r.status;
-            rawBody = r.body;
-          } else {
-            const successStatuses = Object.keys(responses)
-              .map((statusCode) => Number(statusCode))
-              .filter((statusCode) => statusCode >= 200 && statusCode < 300)
-              .sort((left, right) => left - right);
-
-            if (successStatuses.length === 0) {
-              throw new Error('Handler returned a body, but `responses` has no 2xx status to map it to. Return `reply(status, body)` instead.');
-            }
-
-            responseStatus = successStatuses[0];
-            rawBody = result;
-          }
-        } else {
-          responseStatus = status;
-          rawBody = result;
-        }
-
-        const responseValidationSchema = responses ? responses[responseStatus]?.schema : responseSchema;
-        const payload = responseValidationSchema ? responseValidationSchema.parse(rawBody) : rawBody;
-
-        if (responseStatus === 204) {
-          res.status(204).send();
-          return;
-        }
-
-        res.status(responseStatus).json(payload);
-      } catch (error) {
-        handleRouteError(error, res, next);
-      }
-    };
-
-    const allMiddleware = [...globalMiddleware, ...middleware];
-    const expressHandler = chainMiddleware(allMiddleware, coreHandler);
+    const expressHandler = chainMiddleware([...globalMiddleware, ...normalizedRoute.middleware], createRuntimeHandler(normalizedRoute));
 
     registeredRoutes.push({
       method,
-      path: fullPath,
+      path: normalizedRoute.path,
       handler: expressHandler,
     });
 

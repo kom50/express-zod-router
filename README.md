@@ -1173,6 +1173,27 @@ client for your frontend:
 npx openapi-typescript http://localhost:3000/api-docs.json -o client-types.ts
 ```
 
+---
+
+## Contributor architecture
+
+Public route definitions are normalized into a canonical internal `NormalizedRoute` before they are registered.
+
+```text
+Public RouteConfig
+       ↓
+ Route normalizer
+       ↓
+ NormalizedRoute
+   ┌───┴────┐
+Runtime   OpenAPI
+adapter   adapter
+```
+
+The normalized contract separates request schemas, response definitions, middleware, metadata, security, version data, the resolved path, and operation ID. Runtime execution and OpenAPI generation consume this same contract rather than interpreting `RouteConfig` independently.
+
+This is an internal contributor boundary, not a replacement public API. Existing `api.route()`, HTTP-method helpers, and scoped routers continue to accept the same route configuration. Future testing clients, contract tests, and tooling should consume this contract—or a deliberately exported representation—instead of relying on Express runtime internals.
+
 ## License
 
 MIT
