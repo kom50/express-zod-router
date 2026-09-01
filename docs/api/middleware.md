@@ -18,6 +18,36 @@ api.get('/profile', {
 });
 ```
 
+## Request context
+
+Declare a router-level context type to share request-scoped values between middleware and handlers. A fresh context object is created before global middleware for every request.
+
+```ts
+interface AppContext {
+  requestId: string;
+  user?: { id: string };
+}
+
+const api = createApiRouter<AppContext>({
+  middleware: [
+    (req, _res, next) => {
+      req.context.requestId = crypto.randomUUID();
+      next();
+    },
+  ],
+});
+
+api.get('/profile', {
+  middleware: [authenticate],
+  handler: (req) => ({
+    requestId: req.context.requestId,
+    userId: req.context.user?.id,
+  }),
+});
+```
+
+Context is isolated per request, including concurrent asynchronous requests. Store request-local values such as an authenticated user, tenant, tracing metadata, or request-scoped services. Do not use it for shared application state.
+
 ## Middleware levels
 
 | Level         | Configuration                     | Scope                                    |
