@@ -9,6 +9,27 @@ export type Method = 'get' | 'post' | 'put' | 'patch' | 'delete';
  */
 export type Middleware = RequestHandler;
 
+export interface ApiRequestHookContext {
+  req: Request;
+  startTime: Date;
+}
+
+export interface ApiResponseHookContext extends ApiRequestHookContext {
+  res: Response;
+  duration: number;
+}
+
+export interface ApiErrorHookContext extends ApiRequestHookContext {
+  error: unknown;
+  duration: number;
+}
+
+export interface ApiLifecycleHooks {
+  onRequest?: (context: ApiRequestHookContext) => void | Promise<void>;
+  onResponse?: (context: ApiResponseHookContext) => void | Promise<void>;
+  onError?: (context: ApiErrorHookContext) => void | Promise<void>;
+}
+
 export interface UploadedFile {
   fieldname: string;
   originalname: string;

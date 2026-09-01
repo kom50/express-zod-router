@@ -1,8 +1,9 @@
 import type { NextFunction, Request, RequestHandler, Response } from 'express';
 import { handleRouteError } from './errors';
 import type { Middleware } from './types';
+import type { RouteErrorObserver } from './runtime';
 
-export function chainMiddleware(middlewares: Middleware[], finalHandler: RequestHandler): RequestHandler {
+export function chainMiddleware(middlewares: Middleware[], finalHandler: RequestHandler, onError?: RouteErrorObserver): RequestHandler {
   if (middlewares.length === 0) {
     return finalHandler;
   }
@@ -71,6 +72,7 @@ export function chainMiddleware(middlewares: Middleware[], finalHandler: Request
         return;
       }
 
+      await onError?.(error);
       handleRouteError(error, res, next);
     }
   };

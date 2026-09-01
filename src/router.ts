@@ -4,10 +4,9 @@ import type { ZodType } from 'zod';
 
 import type { ApiDocsOptions } from './docs';
 import { joinPaths, normalizePrefix } from './helpers';
-import { chainMiddleware } from './middleware';
+import { createLifecycleHandler } from './lifecycle';
 import { mountDocs, registerNormalizedRoute } from './openapi';
 import { normalizeRoute } from './normalize-route';
-import { createRuntimeHandler } from './runtime';
 import type {
   ApiVersion,
   ApiRouteModule,
@@ -22,6 +21,7 @@ import type {
   RouteSecurity,
   SecuritySchemes,
   VersionConfig,
+  ApiLifecycleHooks,
 } from './types';
 
 export interface CreateApiRouterOptions<S extends SecuritySchemes = SecuritySchemes> {
@@ -29,6 +29,9 @@ export interface CreateApiRouterOptions<S extends SecuritySchemes = SecuritySche
   middleware?: Middleware[];
   securitySchemes?: S;
   version?: VersionConfig;
+  onRequest?: ApiLifecycleHooks['onRequest'];
+  onResponse?: ApiLifecycleHooks['onResponse'];
+  onError?: ApiLifecycleHooks['onError'];
   openapi?: {
     operationId?: {
       strategy?: 'rest' | 'handler' | 'explicit';
@@ -83,7 +86,11 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
     operationIds.add(normalizedRoute.metadata.operationId);
     registerNormalizedRoute(registry, normalizedRoute);
 
-    const expressHandler = chainMiddleware([...globalMiddleware, ...normalizedRoute.middleware], createRuntimeHandler(normalizedRoute));
+    const expressHandler = createLifecycleHandler(normalizedRoute, [...globalMiddleware, ...normalizedRoute.middleware], {
+      onRequest: options.onRequest,
+      onResponse: options.onResponse,
+      onError: options.onError,
+    });
 
     registeredRoutes.push({
       method,

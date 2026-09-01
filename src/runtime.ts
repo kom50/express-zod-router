@@ -2,6 +2,8 @@ import type { NextFunction, Request, RequestHandler, Response } from 'express';
 import { handleRouteError } from './errors';
 import type { NormalizedRoute } from './route-contract';
 
+export type RouteErrorObserver = (error: unknown) => void | Promise<void>;
+
 function caseInsensitiveHeaders(headers: Request['headers']): Request['headers'] {
   return new Proxy(headers, {
     get(target, property, receiver) {
@@ -19,7 +21,7 @@ function getCookies(req: Request): Record<string, unknown> {
 }
 
 /** Express runtime adapter. It executes only the normalized route contract. */
-export function createRuntimeHandler(route: NormalizedRoute): RequestHandler {
+export function createRuntimeHandler(route: NormalizedRoute, onError?: RouteErrorObserver): RequestHandler {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
       if (route.request.body) req.body = route.request.body.schema.parse(req.body);
@@ -87,6 +89,7 @@ export function createRuntimeHandler(route: NormalizedRoute): RequestHandler {
       }
       res.status(responseStatus).json(payload);
     } catch (error) {
+      await onError?.(error);
       handleRouteError(error, res, next);
     }
   };
