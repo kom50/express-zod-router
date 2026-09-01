@@ -1,7 +1,12 @@
 import { defineConfig } from 'vitepress';
+import { resolve } from 'node:path';
 
 export default defineConfig({
   base: '/express-zod-router/',
+  vite: {
+    // Publish the repository's shared static assets with the documentation.
+    publicDir: resolve(__dirname, '../../public'),
+  },
 
   title: 'express-zod-router',
   description:
