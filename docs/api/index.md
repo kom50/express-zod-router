@@ -36,6 +36,7 @@ Define request and response contracts using Zod schemas.
 
 - [Schema API](/api/schema)
 - [Request Validation](/api/request-validation)
+- [Headers and Cookies](/api/headers-cookies)
 - [Response Validation](/api/responses)
 
 ### Middleware
@@ -76,6 +77,7 @@ Understand validation errors and API error handling.
 | [Routes](/api/routes)                         | Register HTTP routes                     |
 | [Schema](/api/schema)                         | Define and use Zod schemas               |
 | [Request Validation](/api/request-validation) | Validate request data                    |
+| [Headers and Cookies](/api/headers-cookies)   | Validate request headers and cookies     |
 | [Responses](/api/responses)                   | Define and validate responses            |
 | [Middleware](/api/middleware)                 | Configure API middleware                 |
 | [Versioning](/api/versioning)                 | Configure API versions                   |
@@ -137,6 +139,7 @@ A route can define:
 - Request parameters
 - Query parameters
 - Request body
+- Request headers and cookies
 - Response schema
 - Middleware
 - Version information

@@ -230,6 +230,8 @@ export function registerNormalizedRoute(registry: OpenAPIRegistry, route: Normal
       ...(requestBodyConfig && { body: requestBodyConfig }),
       ...(route.request.params && { params: route.request.params }),
       ...(route.request.query && { query: route.request.query }),
+      ...(route.request.headers && { headers: route.request.headers }),
+      ...(route.request.cookies && { cookies: route.request.cookies }),
     } as NonNullable<Parameters<typeof registry.registerPath>[0]['request']>,
     ...operation,
     responses: {

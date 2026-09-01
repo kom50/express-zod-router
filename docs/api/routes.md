@@ -569,7 +569,7 @@ See the complete working examples:
 
 - Use `api.route()` for the generic route declaration.
 - Use `api.get()`, `api.post()`, `api.put()`, `api.patch()`, and `api.delete()` for convenience.
-- Use `body`, `params`, and `query` for typed request validation.
+- Use `body`, `params`, `query`, `headers`, and `cookies` for typed request validation.
 - Use `middleware` for route-specific middleware.
 - Use `response` for a successful response contract.
 - Use `responses` when multiple HTTP responses are possible.

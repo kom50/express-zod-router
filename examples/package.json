@@ -10,6 +10,8 @@
     "example:openapi": "tsx openapi/index.ts",
     "example:versioning": "tsx versioning/index.ts",
     "example:upload": "tsx upload/index.ts",
+    "example:headers-cookies": "tsx headers-cookies/index.ts",
+    "example:todo-users": "tsx todo-users/src/server.ts",
     "example:complete": "tsx complete/index.ts",
     "typecheck": "tsc --noEmit"
   },
