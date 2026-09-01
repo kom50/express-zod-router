@@ -26,3 +26,6 @@ The examples are intentionally progressive. `complete` combines the major featur
 | OpenAPI tags/descriptions |  | ✓ |  | ✓ | ✓ | ✓ |  | ✓ |
 | Operation IDs |  |  |  |  | ✓ | ✓ |  | ✓ |
 | Request/response examples |  |  |  |  | ✓ |  |  | ✓ |
+
+`headers-cookies` demonstrates typed Zod validation for request headers and
+cookies, header transforms, cookie defaults, and OpenAPI parameters.

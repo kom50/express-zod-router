@@ -922,6 +922,37 @@ The library does not force a specific upload library at runtime.
 
 ---
 
+## Request headers and cookies
+
+Use `headers` and `cookies` to validate those request inputs and infer their
+types in the handler. Header names are matched case-insensitively, matching
+Node and Express behavior; the parsed object uses the names declared in your
+Zod schema. Duplicate header values retain Express's native representation
+(usually a string, or an array for headers such as `set-cookie`).
+
+```ts
+api.get('/profile', {
+  headers: z.object({
+    authorization: z.string().startsWith('Bearer '),
+    'x-request-id': z.string().min(1),
+  }),
+  cookies: z.object({ session: z.string().min(1) }),
+  response: UserSchema,
+  handler: (req) => getUser(req.cookies.session, req.headers.authorization),
+});
+```
+
+Cookies are read from `req.cookies`, so install and register `cookie-parser`
+(or compatible middleware) before `api.mount(app)`. It remains an optional
+application dependency. Without a parser, the router validates an empty cookie
+object: required cookie fields return the standard 400 validation response,
+while optional and defaulted fields still work. Signed cookies stay in
+`req.signedCookies`; they are not merged with `cookies` automatically.
+
+Both inputs are emitted as OpenAPI parameters (`in: header` and `in: cookie`).
+
+---
+
 ## Multiple responses per route (`responses`)
 
 For endpoints that can return different shapes depending on outcome — the FastAPI

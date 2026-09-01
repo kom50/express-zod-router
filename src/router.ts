@@ -54,7 +54,9 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
     Q extends ZodType | undefined = undefined,
     R extends ZodType | undefined = undefined,
     Rs extends Record<number, ResponseConfig> | undefined = undefined,
-  >(config: RouteConfig<S, B, P, Q, R, Rs>): ApiRouter<S> {
+    H extends ZodType | undefined = undefined,
+    C extends ZodType | undefined = undefined,
+  >(config: RouteConfig<S, B, P, Q, R, Rs, H, C>): ApiRouter<S> {
     return _registerRoute(config.method, config.path, config);
   }
 
@@ -64,7 +66,9 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
     Q extends ZodType | undefined = undefined,
     R extends ZodType | undefined = undefined,
     Rs extends Record<number, ResponseConfig> | undefined = undefined,
-  >(method: Method, path: string, config: Omit<RouteConfig<S, B, P, Q, R, Rs>, 'method' | 'path'>): ApiRouter<S> {
+    H extends ZodType | undefined = undefined,
+    C extends ZodType | undefined = undefined,
+  >(method: Method, path: string, config: Omit<RouteConfig<S, B, P, Q, R, Rs, H, C>, 'method' | 'path'>): ApiRouter<S> {
     const normalizedRoute = normalizeRoute({
       method,
       path,
@@ -135,8 +139,10 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
         Q extends ZodType | undefined = undefined,
         R extends ZodType | undefined = undefined,
         Rs extends Record<number, ResponseConfig> | undefined = undefined,
+        H extends ZodType | undefined = undefined,
+        C extends ZodType | undefined = undefined,
       >(
-        config: Omit<RouteConfig<S, B, P, Q, R, Rs>, 'path' | 'tags' | 'security'> & {
+        config: Omit<RouteConfig<S, B, P, Q, R, Rs, H, C>, 'path' | 'tags' | 'security'> & {
           path?: string;
           version?: ApiVersion | false;
           security?: RouteSecurity<S>;
@@ -188,7 +194,9 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
         Q extends ZodType | undefined = undefined,
         R extends ZodType | undefined = undefined,
         Rs extends Record<number, ResponseConfig> | undefined = undefined,
-      >(path: string, config: ScopedRouterConvenienceConfig<S, B, P, Q, R, Rs>): ApiRouter<S> {
+        H extends ZodType | undefined = undefined,
+        C extends ZodType | undefined = undefined,
+      >(path: string, config: ScopedRouterConvenienceConfig<S, B, P, Q, R, Rs, H, C>): ApiRouter<S> {
         const routePath = joinPaths(normalizedPrefix, path);
         const routeMiddleware = config.middleware ?? [];
         const routeSecurity = config.security ?? routerSecurity;

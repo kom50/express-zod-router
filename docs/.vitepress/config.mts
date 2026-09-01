@@ -32,6 +32,7 @@ export default defineConfig({
             { text: 'Router', link: '/api/router' },
             { text: 'Routes', link: '/api/routes' },
             { text: 'Request Validation', link: '/api/request-validation' },
+            { text: 'Headers and Cookies', link: '/api/headers-cookies' },
             { text: 'Responses', link: '/api/responses' },
             { text: 'Schema', link: '/api/schema' },
             { text: 'Middleware', link: '/api/middleware' },

@@ -77,10 +77,18 @@ export type TypedRequest<
   B extends ZodType | undefined = undefined,
   P extends ZodType | undefined = undefined,
   Q extends ZodType | undefined = undefined,
-> = Omit<Request, 'body' | 'params' | 'query'> & {
+  H extends ZodType | undefined = undefined,
+  C extends ZodType | undefined = undefined,
+> = Omit<Request, 'body' | 'params' | 'query' | 'headers' | 'cookies'> & {
   body: B extends ZodType ? z.infer<B> : B extends { schema: infer S extends ZodType } ? z.infer<S> : Request['body'];
   params: P extends ZodType ? z.infer<P> : Request['params'];
   query: Q extends ZodType ? z.infer<Q> : Request['query'];
+  headers: H extends ZodType ? z.infer<H> : Request['headers'];
+  /**
+   * Parsed by cookie-parser or compatible middleware. Signed cookies remain on
+   * `req.signedCookies` and are intentionally not merged into this contract.
+   */
+  cookies: C extends ZodType ? z.infer<C> : Record<string, unknown>;
   file?: UploadedFile;
   files?: UploadedFile[] | Record<string, UploadedFile[]>;
 };
@@ -149,6 +157,8 @@ export interface RouteConfig<
   Q extends ZodType | undefined = undefined,
   R extends ZodType | undefined = undefined,
   Rs extends Record<number, ResponseConfig> | undefined = undefined,
+  H extends ZodType | undefined = undefined,
+  C extends ZodType | undefined = undefined,
 > {
   method: Method;
   path: string;
@@ -163,6 +173,8 @@ export interface RouteConfig<
   body?: B | RouteSchemaConfig<NonNullable<B>>;
   params?: P;
   query?: Q;
+  headers?: H;
+  cookies?: C;
   security?: RouteSecurity<S>;
   upload?: UploadConfig;
 
@@ -197,7 +209,7 @@ export interface RouteConfig<
   responseDescription?: string;
 
   handler: (
-    req: TypedRequest<B, P, Q>,
+    req: TypedRequest<B, P, Q, H, C>,
     res: Response,
   ) => Rs extends Record<number, ResponseConfig>
     ? InferResponses<Rs> | InferSuccessResponseBody<Rs> | Promise<InferResponses<Rs> | InferSuccessResponseBody<Rs>> | Response | Promise<Response>
@@ -239,7 +251,9 @@ export type RouteConfigWithoutMethod<
   Q extends ZodType | undefined = undefined,
   R extends ZodType | undefined = undefined,
   Rs extends Record<number, ResponseConfig> | undefined = undefined,
-> = Omit<RouteConfig<S, B, P, Q, R, Rs>, 'method' | 'path'>;
+  H extends ZodType | undefined = undefined,
+  C extends ZodType | undefined = undefined,
+> = Omit<RouteConfig<S, B, P, Q, R, Rs, H, C>, 'method' | 'path'>;
 
 /**
  * Convenience route config for root API methods.
@@ -252,7 +266,9 @@ export type RootApiConvenienceConfig<
   Q extends ZodType | undefined = undefined,
   R extends ZodType | undefined = undefined,
   Rs extends Record<number, ResponseConfig> | undefined = undefined,
-> = RouteConfigWithoutMethod<S, B, P, Q, R, Rs>;
+  H extends ZodType | undefined = undefined,
+  C extends ZodType | undefined = undefined,
+> = RouteConfigWithoutMethod<S, B, P, Q, R, Rs, H, C>;
 
 /**
  * Convenience route config for scoped router methods.
@@ -265,7 +281,9 @@ export type ScopedRouterConvenienceConfig<
   Q extends ZodType | undefined = undefined,
   R extends ZodType | undefined = undefined,
   Rs extends Record<number, ResponseConfig> | undefined = undefined,
-> = Omit<RouteConfigWithoutMethod<S, B, P, Q, R, Rs>, 'path' | 'tags' | 'security'> & {
+  H extends ZodType | undefined = undefined,
+  C extends ZodType | undefined = undefined,
+> = Omit<RouteConfigWithoutMethod<S, B, P, Q, R, Rs, H, C>, 'path' | 'tags' | 'security'> & {
   version?: ApiVersion | false;
   security?: RouteSecurity<S>;
 };
@@ -279,9 +297,11 @@ export type RootApiMethodSignature<S extends AnySecuritySchemes = AnySecuritySch
   Q extends ZodType | undefined = undefined,
   R extends ZodType | undefined = undefined,
   Rs extends Record<number, ResponseConfig> | undefined = undefined,
+  H extends ZodType | undefined = undefined,
+  C extends ZodType | undefined = undefined,
 >(
   path: string,
-  config: RootApiConvenienceConfig<S, B, P, Q, R, Rs>,
+  config: RootApiConvenienceConfig<S, B, P, Q, R, Rs, H, C>,
 ) => ApiRouter<S>;
 
 /**
@@ -293,9 +313,11 @@ export type ScopedRouterMethodSignature<S extends AnySecuritySchemes = AnySecuri
   Q extends ZodType | undefined = undefined,
   R extends ZodType | undefined = undefined,
   Rs extends Record<number, ResponseConfig> | undefined = undefined,
+  H extends ZodType | undefined = undefined,
+  C extends ZodType | undefined = undefined,
 >(
   path: string,
-  config: ScopedRouterConvenienceConfig<S, B, P, Q, R, Rs>,
+  config: ScopedRouterConvenienceConfig<S, B, P, Q, R, Rs, H, C>,
 ) => ApiRouter<S>;
 
 export type ScopedRouter<S extends AnySecuritySchemes = AnySecuritySchemes> = {
@@ -305,8 +327,10 @@ export type ScopedRouter<S extends AnySecuritySchemes = AnySecuritySchemes> = {
     Q extends ZodType | undefined = undefined,
     R extends ZodType | undefined = undefined,
     Rs extends Record<number, ResponseConfig> | undefined = undefined,
+    H extends ZodType | undefined = undefined,
+    C extends ZodType | undefined = undefined,
   >(
-    config: RouteConfig<S, B, P, Q, R, Rs>,
+    config: RouteConfig<S, B, P, Q, R, Rs, H, C>,
   ): ApiRouter<S>;
 
   get: ScopedRouterMethodSignature<S>;
@@ -325,8 +349,10 @@ export interface ApiRouter<S extends AnySecuritySchemes = AnySecuritySchemes> {
     Q extends ZodType | undefined = undefined,
     R extends ZodType | undefined = undefined,
     Rs extends Record<number, ResponseConfig> | undefined = undefined,
+    H extends ZodType | undefined = undefined,
+    C extends ZodType | undefined = undefined,
   >(
-    config: RouteConfig<S, B, P, Q, R, Rs>,
+    config: RouteConfig<S, B, P, Q, R, Rs, H, C>,
   ) => ApiRouter<S>;
 
   get: RootApiMethodSignature<S>;

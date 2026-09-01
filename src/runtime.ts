@@ -2,6 +2,22 @@ import type { NextFunction, Request, RequestHandler, Response } from 'express';
 import { handleRouteError } from './errors';
 import type { NormalizedRoute } from './route-contract';
 
+function caseInsensitiveHeaders(headers: Request['headers']): Request['headers'] {
+  return new Proxy(headers, {
+    get(target, property, receiver) {
+      return typeof property === 'string' ? target[property.toLowerCase()] : Reflect.get(target, property, receiver);
+    },
+    has(target, property) {
+      return typeof property === 'string' ? property.toLowerCase() in target : Reflect.has(target, property);
+    },
+  });
+}
+
+function getCookies(req: Request): Record<string, unknown> {
+  const cookies = (req as Request & { cookies?: unknown }).cookies;
+  return cookies && typeof cookies === 'object' && !Array.isArray(cookies) ? (cookies as Record<string, unknown>) : {};
+}
+
 /** Express runtime adapter. It executes only the normalized route contract. */
 export function createRuntimeHandler(route: NormalizedRoute): RequestHandler {
   return async (req: Request, res: Response, next: NextFunction) => {
@@ -9,15 +25,28 @@ export function createRuntimeHandler(route: NormalizedRoute): RequestHandler {
       if (route.request.body) req.body = route.request.body.schema.parse(req.body);
       if (route.request.params) req.params = route.request.params.parse(req.params) as typeof req.params;
 
-      let handlerReq = req;
+      const parsedRequest: Record<string, unknown> = {};
       if (route.request.query) {
+        parsedRequest.query = route.request.query.parse(req.query);
+      }
+      if (route.request.headers) {
+        parsedRequest.headers = route.request.headers.parse(caseInsensitiveHeaders(req.headers));
+      }
+      if (route.request.cookies) {
+        parsedRequest.cookies = route.request.cookies.parse(getCookies(req));
+      }
+
+      let handlerReq = req;
+      if (Object.keys(parsedRequest).length > 0) {
         handlerReq = Object.create(req);
-        Object.defineProperty(handlerReq, 'query', {
-          value: route.request.query.parse(req.query),
-          writable: true,
-          enumerable: true,
-          configurable: true,
-        });
+        for (const [key, value] of Object.entries(parsedRequest)) {
+          Object.defineProperty(handlerReq, key, {
+            value,
+            writable: true,
+            enumerable: true,
+            configurable: true,
+          });
+        }
       }
 
       const result = await route.handler(handlerReq, res);

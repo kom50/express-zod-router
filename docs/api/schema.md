@@ -60,6 +60,8 @@ Supported schema options include:
 - `body`
 - `params`
 - `query`
+- `headers`
+- `cookies`
 - `response`
 - `responses`
 
@@ -145,6 +147,12 @@ api.get('/users/:id', {
   },
 });
 ```
+
+### Headers and cookies
+
+Use `headers` and `cookies` with Zod object schemas to validate and infer these
+request inputs. See [Headers and Cookies](./headers-cookies) for complete
+examples and cookie-parser setup.
 
 ## Response schemas
 

@@ -26,6 +26,8 @@ api.post('/users', {
 | `body`   | `ZodType`     | Validates and types `req.body`   |
 | `params` | `ZodType`     | Validates and types `req.params` |
 | `query`  | `ZodType`     | Validates and types `req.query`  |
+| `headers` | `ZodType`    | Validates and types `req.headers` |
+| `cookies` | `ZodType`    | Validates and types `req.cookies` |
 
 ## `body`
 
@@ -167,6 +169,10 @@ api.put('/users/:id', {
 });
 ```
 
+Headers and cookies can be combined with these inputs. See [Headers and
+Cookies](./headers-cookies) for parser setup, case-insensitive header matching,
+signed-cookie behavior, and OpenAPI parameters.
+
 ## Typed request
 
 The route handler receives request properties inferred from the supplied schemas.
@@ -249,6 +255,7 @@ See the complete working examples:
 - Use `body` to validate request bodies.
 - Use `params` to validate route parameters.
 - Use `query` to validate query-string parameters.
+- Use `headers` and `cookies` to validate request metadata and sessions.
 - Multiple request schemas can be used on the same route.
 - Zod provides runtime validation and TypeScript inference.
 - Use `z.coerce` when query-string values need type conversion.

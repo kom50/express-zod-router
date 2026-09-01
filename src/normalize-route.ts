@@ -19,7 +19,7 @@ import type { NormalizedResponseContract, NormalizedRoute } from './route-contra
 export interface NormalizeRouteOptions<S extends SecuritySchemes = SecuritySchemes> {
   method: Method;
   path: string;
-  config: Omit<RouteConfig<S, any, any, any, any, any>, 'method' | 'path'>;
+  config: Omit<RouteConfig<S, any, any, any, any, any, any, any>, 'method' | 'path'>;
   prefix?: string;
   version?: VersionConfig;
   operationIdStrategy?: OperationIdStrategy;
@@ -126,6 +126,8 @@ export function normalizeRoute<S extends SecuritySchemes = SecuritySchemes>(opti
       ...(requestBody.schema && { body: requestBody }),
       ...(config.params && { params: config.params }),
       ...(config.query && { query: config.query }),
+      ...(config.headers && { headers: config.headers }),
+      ...(config.cookies && { cookies: config.cookies }),
       ...(config.upload && { upload: config.upload }),
     },
     response: normalizedResponse,

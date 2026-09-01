@@ -24,6 +24,8 @@ export interface NormalizedRequestContract {
   body?: NormalizedSchemaContract;
   params?: ZodType;
   query?: ZodType;
+  headers?: ZodType;
+  cookies?: ZodType;
   upload?: UploadConfig;
 }
 

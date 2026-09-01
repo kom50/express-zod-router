@@ -26,6 +26,8 @@ examples/
 │   └── index.ts
 ├── upload/
 │   └── index.ts
+├── headers-cookies/
+│   └── index.ts
 └── complete/
     └── index.ts
 ```
@@ -57,6 +59,7 @@ npm run example:auth
 npm run example:openapi
 npm run example:versioning
 npm run example:upload
+npm run example:headers-cookies
 npm run example:complete
 ```
 
@@ -78,5 +81,6 @@ npm run typecheck
 | Versioning | 3005 | http://localhost:3005 |
 | Upload | 3006 | http://localhost:3006 |
 | Complete | 3007 | http://localhost:3007 |
+| Headers and cookies | 3008 | http://localhost:3008/api/profile |
 
 The OpenAPI examples expose Swagger UI at `/api-docs` and the JSON document at `/api-docs.json` unless a custom docs path is configured.
