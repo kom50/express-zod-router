@@ -1,8 +1,8 @@
 import type { NextFunction, Request, RequestHandler, Response } from 'express';
 import { handleRouteError } from './errors';
-import type { Middleware } from './types';
+import type { Middleware, RequestContext } from './types';
 
-export function chainMiddleware(middlewares: Middleware[], finalHandler: RequestHandler): RequestHandler {
+export function chainMiddleware<Context extends RequestContext>(middlewares: Middleware<Context>[], finalHandler: RequestHandler): RequestHandler {
   if (middlewares.length === 0) {
     return finalHandler;
   }
@@ -37,7 +37,7 @@ export function chainMiddleware(middlewares: Middleware[], finalHandler: Request
         };
 
         try {
-          const result = middleware(req, res, (err?: unknown) => finish(err));
+          const result = middleware(req as Parameters<typeof middleware>[0], res, (err?: unknown) => finish(err));
           const maybePromise = result as Promise<unknown> | undefined;
 
           if (maybePromise && typeof maybePromise.then === 'function') {

@@ -4,10 +4,19 @@ import type { ZodType, z } from 'zod';
 export type Method = 'get' | 'post' | 'put' | 'patch' | 'delete';
 
 /**
- * Middleware type compatible with Express middleware.
- * Can be a standard Express RequestHandler or async function.
+ * Middleware type compatible with Express middleware and the router context.
  */
-export type Middleware = RequestHandler;
+export type RequestContext = object;
+
+export type ContextRequest<C extends RequestContext = RequestContext> = Request & {
+  context: C;
+};
+
+export type Middleware<C extends RequestContext = RequestContext> = (
+  req: ContextRequest<C>,
+  res: Response,
+  next: NextFunction,
+) => unknown;
 
 export interface UploadedFile {
   fieldname: string;
@@ -79,7 +88,8 @@ export type TypedRequest<
   Q extends ZodType | undefined = undefined,
   H extends ZodType | undefined = undefined,
   C extends ZodType | undefined = undefined,
-> = Omit<Request, 'body' | 'params' | 'query' | 'headers' | 'cookies'> & {
+  Context extends RequestContext = RequestContext,
+> = Omit<ContextRequest<Context>, 'body' | 'params' | 'query' | 'headers' | 'cookies'> & {
   body: B extends ZodType ? z.infer<B> : B extends { schema: infer S extends ZodType } ? z.infer<S> : Request['body'];
   params: P extends ZodType ? z.infer<P> : Request['params'];
   query: Q extends ZodType ? z.infer<Q> : Request['query'];
@@ -159,6 +169,7 @@ export interface RouteConfig<
   Rs extends Record<number, ResponseConfig> | undefined = undefined,
   H extends ZodType | undefined = undefined,
   C extends ZodType | undefined = undefined,
+  Context extends RequestContext = RequestContext,
 > {
   method: Method;
   path: string;
@@ -181,7 +192,7 @@ export interface RouteConfig<
   /**
    * Route-level middleware. Executes after global middleware, before validation.
    */
-  middleware?: Middleware[];
+  middleware?: Middleware<Context>[];
 
   /**
    * Simple response:
@@ -209,7 +220,7 @@ export interface RouteConfig<
   responseDescription?: string;
 
   handler: (
-    req: TypedRequest<B, P, Q, H, C>,
+    req: TypedRequest<B, P, Q, H, C, Context>,
     res: Response,
   ) => Rs extends Record<number, ResponseConfig>
     ? InferResponses<Rs> | InferSuccessResponseBody<Rs> | Promise<InferResponses<Rs> | InferSuccessResponseBody<Rs>> | Response | Promise<Response>
@@ -236,7 +247,8 @@ export interface CreateRouterOptions {
   };
 }
 
-export type CreateRouterOptionsFor<S extends AnySecuritySchemes = AnySecuritySchemes> = Omit<CreateRouterOptions, 'security'> & {
+export type CreateRouterOptionsFor<S extends AnySecuritySchemes = AnySecuritySchemes, Context extends RequestContext = RequestContext> = Omit<CreateRouterOptions, 'security' | 'middleware'> & {
+  middleware?: Middleware<Context>[];
   security?: RouteSecurity<S>;
 };
 
@@ -253,7 +265,8 @@ export type RouteConfigWithoutMethod<
   Rs extends Record<number, ResponseConfig> | undefined = undefined,
   H extends ZodType | undefined = undefined,
   C extends ZodType | undefined = undefined,
-> = Omit<RouteConfig<S, B, P, Q, R, Rs, H, C>, 'method' | 'path'>;
+  Context extends RequestContext = RequestContext,
+> = Omit<RouteConfig<S, B, P, Q, R, Rs, H, C, Context>, 'method' | 'path'>;
 
 /**
  * Convenience route config for root API methods.
@@ -268,7 +281,8 @@ export type RootApiConvenienceConfig<
   Rs extends Record<number, ResponseConfig> | undefined = undefined,
   H extends ZodType | undefined = undefined,
   C extends ZodType | undefined = undefined,
-> = RouteConfigWithoutMethod<S, B, P, Q, R, Rs, H, C>;
+  Context extends RequestContext = RequestContext,
+> = RouteConfigWithoutMethod<S, B, P, Q, R, Rs, H, C, Context>;
 
 /**
  * Convenience route config for scoped router methods.
@@ -283,7 +297,8 @@ export type ScopedRouterConvenienceConfig<
   Rs extends Record<number, ResponseConfig> | undefined = undefined,
   H extends ZodType | undefined = undefined,
   C extends ZodType | undefined = undefined,
-> = Omit<RouteConfigWithoutMethod<S, B, P, Q, R, Rs, H, C>, 'path' | 'tags' | 'security'> & {
+  Context extends RequestContext = RequestContext,
+> = Omit<RouteConfigWithoutMethod<S, B, P, Q, R, Rs, H, C, Context>, 'path' | 'tags' | 'security'> & {
   version?: ApiVersion | false;
   security?: RouteSecurity<S>;
 };
@@ -291,7 +306,7 @@ export type ScopedRouterConvenienceConfig<
 /**
  * Reusable signature for root API HTTP method convenience functions.
  */
-export type RootApiMethodSignature<S extends AnySecuritySchemes = AnySecuritySchemes> = <
+export type RootApiMethodSignature<S extends AnySecuritySchemes = AnySecuritySchemes, Context extends RequestContext = RequestContext> = <
   B extends ZodType | undefined = undefined,
   P extends ZodType | undefined = undefined,
   Q extends ZodType | undefined = undefined,
@@ -299,15 +314,16 @@ export type RootApiMethodSignature<S extends AnySecuritySchemes = AnySecuritySch
   Rs extends Record<number, ResponseConfig> | undefined = undefined,
   H extends ZodType | undefined = undefined,
   C extends ZodType | undefined = undefined,
+  
 >(
   path: string,
-  config: RootApiConvenienceConfig<S, B, P, Q, R, Rs, H, C>,
-) => ApiRouter<S>;
+  config: RootApiConvenienceConfig<S, B, P, Q, R, Rs, H, C, Context>,
+) => ApiRouter<S, Context>;
 
 /**
  * Reusable signature for scoped router HTTP method convenience functions.
  */
-export type ScopedRouterMethodSignature<S extends AnySecuritySchemes = AnySecuritySchemes> = <
+export type ScopedRouterMethodSignature<S extends AnySecuritySchemes = AnySecuritySchemes, Context extends RequestContext = RequestContext> = <
   B extends ZodType | undefined = undefined,
   P extends ZodType | undefined = undefined,
   Q extends ZodType | undefined = undefined,
@@ -317,10 +333,10 @@ export type ScopedRouterMethodSignature<S extends AnySecuritySchemes = AnySecuri
   C extends ZodType | undefined = undefined,
 >(
   path: string,
-  config: ScopedRouterConvenienceConfig<S, B, P, Q, R, Rs, H, C>,
-) => ApiRouter<S>;
+  config: ScopedRouterConvenienceConfig<S, B, P, Q, R, Rs, H, C, Context>,
+) => ApiRouter<S, Context>;
 
-export type ScopedRouter<S extends AnySecuritySchemes = AnySecuritySchemes> = {
+export type ScopedRouter<S extends AnySecuritySchemes = AnySecuritySchemes, Context extends RequestContext = RequestContext> = {
   <
     B extends ZodType | undefined = undefined,
     P extends ZodType | undefined = undefined,
@@ -330,19 +346,19 @@ export type ScopedRouter<S extends AnySecuritySchemes = AnySecuritySchemes> = {
     H extends ZodType | undefined = undefined,
     C extends ZodType | undefined = undefined,
   >(
-    config: RouteConfig<S, B, P, Q, R, Rs, H, C>,
-  ): ApiRouter<S>;
+    config: RouteConfig<S, B, P, Q, R, Rs, H, C, Context>,
+  ): ApiRouter<S, Context>;
 
-  get: ScopedRouterMethodSignature<S>;
-  post: ScopedRouterMethodSignature<S>;
-  put: ScopedRouterMethodSignature<S>;
-  patch: ScopedRouterMethodSignature<S>;
-  delete: ScopedRouterMethodSignature<S>;
+  get: ScopedRouterMethodSignature<S, Context>;
+  post: ScopedRouterMethodSignature<S, Context>;
+  put: ScopedRouterMethodSignature<S, Context>;
+  patch: ScopedRouterMethodSignature<S, Context>;
+  delete: ScopedRouterMethodSignature<S, Context>;
 
-  use: (middleware: Middleware) => ScopedRouter<S>;
+  use: (middleware: Middleware<Context>) => ScopedRouter<S, Context>;
 };
 
-export interface ApiRouter<S extends AnySecuritySchemes = AnySecuritySchemes> {
+export interface ApiRouter<S extends AnySecuritySchemes = AnySecuritySchemes, Context extends RequestContext = RequestContext> {
   route: <
     B extends ZodType | undefined = undefined,
     P extends ZodType | undefined = undefined,
@@ -352,23 +368,23 @@ export interface ApiRouter<S extends AnySecuritySchemes = AnySecuritySchemes> {
     H extends ZodType | undefined = undefined,
     C extends ZodType | undefined = undefined,
   >(
-    config: RouteConfig<S, B, P, Q, R, Rs, H, C>,
-  ) => ApiRouter<S>;
+    config: RouteConfig<S, B, P, Q, R, Rs, H, C, Context>,
+  ) => ApiRouter<S, Context>;
 
-  get: RootApiMethodSignature<S>;
-  post: RootApiMethodSignature<S>;
-  put: RootApiMethodSignature<S>;
-  patch: RootApiMethodSignature<S>;
-  delete: RootApiMethodSignature<S>;
+  get: RootApiMethodSignature<S, Context>;
+  post: RootApiMethodSignature<S, Context>;
+  put: RootApiMethodSignature<S, Context>;
+  patch: RootApiMethodSignature<S, Context>;
+  delete: RootApiMethodSignature<S, Context>;
 
-  createRouter: ((prefix: string, tags?: string[]) => ScopedRouter<S>) & ((options: CreateRouterOptionsFor<S>) => ScopedRouter<S>);
-  version: (versionString: ApiVersion, options?: Omit<CreateRouterOptionsFor<S>, 'path' | 'version'>) => ScopedRouter<S>;
+  createRouter: ((prefix: string, tags?: string[]) => ScopedRouter<S, Context>) & ((options: CreateRouterOptionsFor<S, Context>) => ScopedRouter<S, Context>);
+  version: (versionString: ApiVersion, options?: Omit<CreateRouterOptionsFor<S, Context>, 'path' | 'version'>) => ScopedRouter<S, Context>;
 
-  routes: (modules: ApiRouteModule<S>[]) => ApiRouter<S>;
+  routes: (modules: ApiRouteModule<S, Context>[]) => ApiRouter<S, Context>;
   mount: (app: import('express').Express) => import('express').Express;
   docs: (options?: import('./docs').ApiDocsOptions) => ApiRouter<S>;
-  use: (middleware: Middleware) => ApiRouter<S>;
+  use: (middleware: Middleware<Context>) => ApiRouter<S, Context>;
   registry: import('@asteasolutions/zod-to-openapi').OpenAPIRegistry;
 }
 
-export type ApiRouteModule<S extends AnySecuritySchemes = AnySecuritySchemes> = (api: ApiRouter<S>) => void;
+export type ApiRouteModule<S extends AnySecuritySchemes = AnySecuritySchemes, Context extends RequestContext = RequestContext> = (api: ApiRouter<S, Context>) => void;

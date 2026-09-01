@@ -20,13 +20,14 @@ import type {
   ScopedRouterConvenienceConfig,
   ScopedRouterMethodSignature,
   RouteSecurity,
+  RequestContext,
   SecuritySchemes,
   VersionConfig,
 } from './types';
 
-export interface CreateApiRouterOptions<S extends SecuritySchemes = SecuritySchemes> {
+export interface CreateApiRouterOptions<S extends SecuritySchemes = SecuritySchemes, Context extends RequestContext = RequestContext> {
   prefix?: string;
-  middleware?: Middleware[];
+  middleware?: Middleware<Context>[];
   securitySchemes?: S;
   version?: VersionConfig;
   openapi?: {
@@ -36,11 +37,13 @@ export interface CreateApiRouterOptions<S extends SecuritySchemes = SecuritySche
   };
 }
 
-export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(options: CreateApiRouterOptions<S> = {}): ApiRouter<S> {
+export function createApiRouter<Context extends RequestContext = RequestContext, S extends SecuritySchemes = SecuritySchemes>(
+  options: CreateApiRouterOptions<S, Context> = {},
+): ApiRouter<S, Context> {
   const registry = new OpenAPIRegistry();
   const registeredRoutes: RegisteredRoute[] = [];
   const operationIds = new Set<string>();
-  const globalMiddleware: Middleware[] = [...(options.middleware ?? [])];
+  const globalMiddleware: Middleware<Context>[] = [...(options.middleware ?? [])];
   const prefix = normalizePrefix(options.prefix);
   const securitySchemes = options.securitySchemes;
   const operationIdStrategy = options.openapi?.operationId?.strategy ?? 'rest';
@@ -56,7 +59,7 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
     Rs extends Record<number, ResponseConfig> | undefined = undefined,
     H extends ZodType | undefined = undefined,
     C extends ZodType | undefined = undefined,
-  >(config: RouteConfig<S, B, P, Q, R, Rs, H, C>): ApiRouter<S> {
+  >(config: RouteConfig<S, B, P, Q, R, Rs, H, C, Context>): ApiRouter<S, Context> {
     return _registerRoute(config.method, config.path, config);
   }
 
@@ -68,7 +71,7 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
     Rs extends Record<number, ResponseConfig> | undefined = undefined,
     H extends ZodType | undefined = undefined,
     C extends ZodType | undefined = undefined,
-  >(method: Method, path: string, config: Omit<RouteConfig<S, B, P, Q, R, Rs, H, C>, 'method' | 'path'>): ApiRouter<S> {
+  >(method: Method, path: string, config: Omit<RouteConfig<S, B, P, Q, R, Rs, H, C, Context>, 'method' | 'path'>): ApiRouter<S, Context> {
     const normalizedRoute = normalizeRoute({
       method,
       path,
@@ -83,7 +86,16 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
     operationIds.add(normalizedRoute.metadata.operationId);
     registerNormalizedRoute(registry, normalizedRoute);
 
-    const expressHandler = chainMiddleware([...globalMiddleware, ...normalizedRoute.middleware], createRuntimeHandler(normalizedRoute));
+    const handler = chainMiddleware([...globalMiddleware, ...(normalizedRoute.middleware as Middleware<Context>[])], createRuntimeHandler(normalizedRoute));
+    const expressHandler: RequestHandler = (req, res, next) => {
+      Object.defineProperty(req, 'context', {
+        value: {},
+        writable: true,
+        enumerable: true,
+        configurable: true,
+      });
+      return handler(req, res, next);
+    };
 
     registeredRoutes.push({
       method,
@@ -94,11 +106,11 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
     return api;
   }
 
-  function createRouter(prefixOrOptions: string | CreateRouterOptionsFor<S>, routerTags: string[] = []) {
+  function createRouter(prefixOrOptions: string | CreateRouterOptionsFor<S, Context>, routerTags: string[] = []) {
     let routerPrefix: string;
     let routerVersion: ApiVersion | false | undefined;
     let tags: string[];
-    let initialMiddleware: Middleware[];
+    let initialMiddleware: Middleware<Context>[];
     let initialSecurity: RouteSecurity<S> | undefined;
     let routerDeprecated: boolean | undefined;
 
@@ -129,7 +141,7 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
     }
 
     const normalizedPrefix = normalizePrefix(routerPrefix);
-    const routerMiddleware: Middleware[] = [...initialMiddleware];
+    const routerMiddleware: Middleware<Context>[] = [...initialMiddleware];
     const routerSecurity: RouteSecurity<S> | undefined = initialSecurity;
 
     type ScopedRouteFunction = {
@@ -142,21 +154,21 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
         H extends ZodType | undefined = undefined,
         C extends ZodType | undefined = undefined,
       >(
-        config: Omit<RouteConfig<S, B, P, Q, R, Rs, H, C>, 'path' | 'tags' | 'security'> & {
+        config: Omit<RouteConfig<S, B, P, Q, R, Rs, H, C, Context>, 'path' | 'tags' | 'security'> & {
           path?: string;
           version?: ApiVersion | false;
           security?: RouteSecurity<S>;
         },
-      ): ApiRouter<S>;
+      ): ApiRouter<S, Context>;
     };
 
     type ScopedRouterImpl = ScopedRouteFunction & {
-      get: ScopedRouterMethodSignature<S>;
-      post: ScopedRouterMethodSignature<S>;
-      put: ScopedRouterMethodSignature<S>;
-      patch: ScopedRouterMethodSignature<S>;
-      delete: ScopedRouterMethodSignature<S>;
-      use: (middleware: Middleware) => ScopedRouterImpl;
+      get: ScopedRouterMethodSignature<S, Context>;
+      post: ScopedRouterMethodSignature<S, Context>;
+      put: ScopedRouterMethodSignature<S, Context>;
+      patch: ScopedRouterMethodSignature<S, Context>;
+      delete: ScopedRouterMethodSignature<S, Context>;
+      use: (middleware: Middleware<Context>) => ScopedRouterImpl;
     };
 
     const routerFunction: ScopedRouterImpl = ((
@@ -182,12 +194,12 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
       });
     }) as ScopedRouterImpl;
 
-    routerFunction.use = function (middleware: Middleware) {
+    routerFunction.use = function (middleware: Middleware<Context>) {
       routerMiddleware.push(middleware);
       return routerFunction;
     };
 
-    function registerScopedMethod(method: Method): ScopedRouterMethodSignature<S> {
+    function registerScopedMethod(method: Method): ScopedRouterMethodSignature<S, Context> {
       return function <
         B extends ZodType | undefined = undefined,
         P extends ZodType | undefined = undefined,
@@ -196,7 +208,7 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
         Rs extends Record<number, ResponseConfig> | undefined = undefined,
         H extends ZodType | undefined = undefined,
         C extends ZodType | undefined = undefined,
-      >(path: string, config: ScopedRouterConvenienceConfig<S, B, P, Q, R, Rs, H, C>): ApiRouter<S> {
+      >(path: string, config: ScopedRouterConvenienceConfig<S, B, P, Q, R, Rs, H, C, Context>): ApiRouter<S, Context> {
         const routePath = joinPaths(normalizedPrefix, path);
         const routeMiddleware = config.middleware ?? [];
         const routeSecurity = config.security ?? routerSecurity;
@@ -222,19 +234,19 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
     return routerFunction;
   }
 
-  function registerRoutes(modules: ApiRouteModule<S>[]): ApiRouter<S> {
+  function registerRoutes(modules: ApiRouteModule<S, Context>[]): ApiRouter<S, Context> {
     for (const module of modules) {
       module(api);
     }
     return api;
   }
 
-  function docs(options: ApiDocsOptions = {}): ApiRouter<S> {
+  function docs(options: ApiDocsOptions = {}): ApiRouter<S, Context> {
     docsOptions = options;
     return api;
   }
 
-  function version(versionString: ApiVersion, options: Omit<CreateRouterOptionsFor<S>, 'path' | 'version'> = {}) {
+  function version(versionString: ApiVersion, options: Omit<CreateRouterOptionsFor<S, Context>, 'path' | 'version'> = {}) {
     return createRouter({
       path: '',
       version: versionString,
@@ -290,7 +302,7 @@ export function createApiRouter<S extends SecuritySchemes = SecuritySchemes>(opt
     return app;
   }
 
-  const api: ApiRouter<S> = {
+  const api: ApiRouter<S, Context> = {
     route,
     get: (path, config) => _registerRoute('get', path, config),
     post: (path, config) => _registerRoute('post', path, config),
