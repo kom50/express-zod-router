@@ -4,10 +4,9 @@ import type { ZodType } from 'zod';
 
 import type { ApiDocsOptions } from './docs';
 import { joinPaths, normalizePrefix } from './helpers';
-import { chainMiddleware } from './middleware';
+import { createLifecycleHandler } from './lifecycle';
 import { mountDocs, registerNormalizedRoute } from './openapi';
 import { normalizeRoute } from './normalize-route';
-import { createRuntimeHandler } from './runtime';
 import type {
   ApiVersion,
   ApiRouteModule,
@@ -23,6 +22,7 @@ import type {
   RequestContext,
   SecuritySchemes,
   VersionConfig,
+  ApiLifecycleHooks,
 } from './types';
 
 export interface CreateApiRouterOptions<S extends SecuritySchemes = SecuritySchemes, Context extends RequestContext = RequestContext> {
@@ -30,6 +30,9 @@ export interface CreateApiRouterOptions<S extends SecuritySchemes = SecuritySche
   middleware?: Middleware<Context>[];
   securitySchemes?: S;
   version?: VersionConfig;
+  onRequest?: ApiLifecycleHooks['onRequest'];
+  onResponse?: ApiLifecycleHooks['onResponse'];
+  onError?: ApiLifecycleHooks['onError'];
   openapi?: {
     operationId?: {
       strategy?: 'rest' | 'handler' | 'explicit';
@@ -86,16 +89,15 @@ export function createApiRouter<Context extends RequestContext = RequestContext,
     operationIds.add(normalizedRoute.metadata.operationId);
     registerNormalizedRoute(registry, normalizedRoute);
 
-    const handler = chainMiddleware([...globalMiddleware, ...(normalizedRoute.middleware as Middleware<Context>[])], createRuntimeHandler(normalizedRoute));
-    const expressHandler: RequestHandler = (req, res, next) => {
-      Object.defineProperty(req, 'context', {
-        value: {},
-        writable: true,
-        enumerable: true,
-        configurable: true,
-      });
-      return handler(req, res, next);
-    };
+    const expressHandler: RequestHandler = createLifecycleHandler<Context>(
+      normalizedRoute,
+      [...globalMiddleware, ...(normalizedRoute.middleware as Middleware<Context>[])],
+      {
+        onRequest: options.onRequest,
+        onResponse: options.onResponse,
+        onError: options.onError,
+      },
+    );
 
     registeredRoutes.push({
       method,

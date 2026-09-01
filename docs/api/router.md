@@ -42,7 +42,32 @@ const api = createApiRouter({
 | `middleware`      | `Middleware[]`    | Global middleware applied to routes        |
 | `securitySchemes` | `SecuritySchemes` | Registers OpenAPI security schemes         |
 | `version`         | `VersionConfig`   | Configures API versioning                  |
+| `onRequest`       | `function`        | Runs when a request begins                 |
+| `onResponse`      | `function`        | Runs after the response finishes           |
+| `onError`         | `function`        | Runs when route processing raises an error |
 | `openapi`         | `object`          | Configures OpenAPI operation ID generation |
+
+### Lifecycle hooks
+
+Use lifecycle hooks to collect request logs, metrics, or tracing data without adding middleware to individual routes.
+
+```ts
+const api = createApiRouter({
+  onRequest: ({ req, startTime }) => {
+    logger.info({ method: req.method, path: req.path, startTime }, 'request started');
+  },
+  onResponse: ({ req, res, duration }) => {
+    logger.info({ method: req.method, path: req.path, status: res.statusCode, duration }, 'request completed');
+  },
+  onError: ({ req, error, duration }) => {
+    logger.error({ method: req.method, path: req.path, error, duration }, 'request failed');
+  },
+});
+```
+
+`onRequest` receives `{ req, startTime }`. `onResponse` receives `{ req, res, startTime, duration }` after Express finishes the response. `onError` receives `{ req, error, startTime, duration }` when route handling or composed middleware throws. `duration` is elapsed time in milliseconds.
+
+Hook callbacks may be asynchronous. Errors thrown by a hook are ignored, so observability code cannot change the API response or error-handling behavior.
 
 ### OpenAPI operation ID configuration
 

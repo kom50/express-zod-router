@@ -30,6 +30,8 @@ Create, configure, group, and mount your API routes.
 - [Router API](/api/router)
 - [Routes API](/api/routes)
 
+Lifecycle hooks for request, response, and error observability are configured through [`createApiRouter()`](/api/router#lifecycle-hooks).
+
 ### Schemas & Validation
 
 Define request and response contracts using Zod schemas.
