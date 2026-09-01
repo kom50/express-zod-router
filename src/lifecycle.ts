@@ -2,7 +2,7 @@ import type { Request, RequestHandler, Response } from 'express';
 import { chainMiddleware } from './middleware';
 import type { NormalizedRoute } from './route-contract';
 import { createRuntimeHandler } from './runtime';
-import type { ApiLifecycleHooks, Middleware } from './types';
+import type { ApiLifecycleHooks, Middleware, RequestContext } from './types';
 
 async function invokeHook(callback: (() => void | Promise<void>) | undefined): Promise<void> {
   try {
@@ -12,8 +12,19 @@ async function invokeHook(callback: (() => void | Promise<void>) | undefined): P
   }
 }
 
-export function createLifecycleHandler(route: NormalizedRoute, middleware: Middleware[], hooks: ApiLifecycleHooks): RequestHandler {
+export function createLifecycleHandler<Context extends RequestContext>(
+  route: NormalizedRoute,
+  middleware: Middleware<Context>[],
+  hooks: ApiLifecycleHooks,
+): RequestHandler {
   return async (req: Request, res: Response, next) => {
+    Object.defineProperty(req, 'context', {
+      value: {},
+      writable: true,
+      enumerable: true,
+      configurable: true,
+    });
+
     const startTime = new Date();
     let errorReported = false;
     const reportError = async (error: unknown) => {

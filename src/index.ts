@@ -12,6 +12,8 @@ export type {
   ApiRouteModule,
   RouteConfig,
   TypedRequest,
+  ContextRequest,
+  RequestContext,
   ResponseConfig,
   Method,
   Middleware,
