@@ -25,9 +25,9 @@ import type {
   VersionConfig,
 } from './types';
 
-export interface CreateApiRouterOptions<S extends SecuritySchemes = SecuritySchemes> {
+export interface CreateApiRouterOptions<S extends SecuritySchemes = SecuritySchemes, Context extends RequestContext = RequestContext> {
   prefix?: string;
-  middleware?: Middleware[];
+  middleware?: Middleware<Context>[];
   securitySchemes?: S;
   version?: VersionConfig;
   openapi?: {
@@ -37,7 +37,9 @@ export interface CreateApiRouterOptions<S extends SecuritySchemes = SecuritySche
   };
 }
 
-export function createApiRouter<Context extends RequestContext = RequestContext, S extends SecuritySchemes = SecuritySchemes>(options: CreateApiRouterOptions<S> = {}): ApiRouter<S, Context> {
+export function createApiRouter<Context extends RequestContext = RequestContext, S extends SecuritySchemes = SecuritySchemes>(
+  options: CreateApiRouterOptions<S, Context> = {},
+): ApiRouter<S, Context> {
   const registry = new OpenAPIRegistry();
   const registeredRoutes: RegisteredRoute[] = [];
   const operationIds = new Set<string>();
@@ -84,10 +86,7 @@ export function createApiRouter<Context extends RequestContext = RequestContext,
     operationIds.add(normalizedRoute.metadata.operationId);
     registerNormalizedRoute(registry, normalizedRoute);
 
-    const handler = chainMiddleware(
-      [...globalMiddleware, ...(normalizedRoute.middleware as Middleware<Context>[])],
-      createRuntimeHandler(normalizedRoute),
-    );
+    const handler = chainMiddleware([...globalMiddleware, ...(normalizedRoute.middleware as Middleware<Context>[])], createRuntimeHandler(normalizedRoute));
     const expressHandler: RequestHandler = (req, res, next) => {
       Object.defineProperty(req, 'context', {
         value: {},
@@ -176,7 +175,7 @@ export function createApiRouter<Context extends RequestContext = RequestContext,
       config: Omit<RouteConfig<any, any, any, any, any>, 'path' | 'tags' | 'security'> & {
         path?: string;
         version?: ApiVersion | false;
-          security?: RouteSecurity<S>;
+        security?: RouteSecurity<S>;
       },
     ) => {
       const routePath = joinPaths(normalizedPrefix, config.path ?? '');
