@@ -21,6 +21,8 @@ import type {
   RouteSecurity,
   RequestContext,
   SecuritySchemes,
+  MultipartParser,
+  UploadConfig,
   VersionConfig,
   ApiLifecycleHooks,
 } from './types';
@@ -28,6 +30,7 @@ import type {
 export interface CreateApiRouterOptions<S extends SecuritySchemes = SecuritySchemes, Context extends RequestContext = RequestContext> {
   prefix?: string;
   middleware?: Middleware<Context>[];
+  multipart?: MultipartParser;
   securitySchemes?: S;
   version?: VersionConfig;
   onRequest?: ApiLifecycleHooks['onRequest'];
@@ -62,7 +65,8 @@ export function createApiRouter<Context extends RequestContext = RequestContext,
     Rs extends Record<number, ResponseConfig> | undefined = undefined,
     H extends ZodType | undefined = undefined,
     C extends ZodType | undefined = undefined,
-  >(config: RouteConfig<S, B, P, Q, R, Rs, H, C, Context>): ApiRouter<S, Context> {
+    const Upload extends UploadConfig | undefined = undefined,
+  >(config: RouteConfig<S, B, P, Q, R, Rs, H, C, Context, Upload>): ApiRouter<S, Context> {
     return _registerRoute(config.method, config.path, config);
   }
 
@@ -74,7 +78,8 @@ export function createApiRouter<Context extends RequestContext = RequestContext,
     Rs extends Record<number, ResponseConfig> | undefined = undefined,
     H extends ZodType | undefined = undefined,
     C extends ZodType | undefined = undefined,
-  >(method: Method, path: string, config: Omit<RouteConfig<S, B, P, Q, R, Rs, H, C, Context>, 'method' | 'path'>): ApiRouter<S, Context> {
+    const Upload extends UploadConfig | undefined = undefined,
+  >(method: Method, path: string, config: Omit<RouteConfig<S, B, P, Q, R, Rs, H, C, Context, Upload>, 'method' | 'path'>): ApiRouter<S, Context> {
     const normalizedRoute = normalizeRoute({
       method,
       path,
@@ -89,9 +94,19 @@ export function createApiRouter<Context extends RequestContext = RequestContext,
     operationIds.add(normalizedRoute.metadata.operationId);
     registerNormalizedRoute(registry, normalizedRoute);
 
+    const multipartMiddleware = options.multipart && normalizedRoute.request.upload
+      ? normalizedRoute.request.upload.type === 'single'
+        ? options.multipart.single(normalizedRoute.request.upload.field)
+        : normalizedRoute.request.upload.type === 'multiple'
+          ? options.multipart.array(normalizedRoute.request.upload.field, normalizedRoute.request.upload.maxFiles)
+          : options.multipart.fields(
+              Object.entries(normalizedRoute.request.upload.fields).map(([name, field]) => ({ name, maxCount: field.maxFiles })),
+            )
+      : undefined;
+
     const expressHandler: RequestHandler = createLifecycleHandler<Context>(
       normalizedRoute,
-      [...globalMiddleware, ...(normalizedRoute.middleware as Middleware<Context>[])],
+      [...(multipartMiddleware ? [multipartMiddleware] : []), ...globalMiddleware, ...(normalizedRoute.middleware as Middleware<Context>[])],
       {
         onRequest: options.onRequest,
         onResponse: options.onResponse,
@@ -155,8 +170,9 @@ export function createApiRouter<Context extends RequestContext = RequestContext,
         Rs extends Record<number, ResponseConfig> | undefined = undefined,
         H extends ZodType | undefined = undefined,
         C extends ZodType | undefined = undefined,
+        const Upload extends UploadConfig | undefined = undefined,
       >(
-        config: Omit<RouteConfig<S, B, P, Q, R, Rs, H, C, Context>, 'path' | 'tags' | 'security'> & {
+        config: Omit<RouteConfig<S, B, P, Q, R, Rs, H, C, Context, Upload>, 'path' | 'tags' | 'security'> & {
           path?: string;
           version?: ApiVersion | false;
           security?: RouteSecurity<S>;
@@ -174,7 +190,7 @@ export function createApiRouter<Context extends RequestContext = RequestContext,
     };
 
     const routerFunction: ScopedRouterImpl = ((
-      config: Omit<RouteConfig<any, any, any, any, any>, 'path' | 'tags' | 'security'> & {
+      config: Omit<RouteConfig<any, any, any, any, any, any, any, any, any, any>, 'path' | 'tags' | 'security'> & {
         path?: string;
         version?: ApiVersion | false;
         security?: RouteSecurity<S>;
@@ -210,7 +226,8 @@ export function createApiRouter<Context extends RequestContext = RequestContext,
         Rs extends Record<number, ResponseConfig> | undefined = undefined,
         H extends ZodType | undefined = undefined,
         C extends ZodType | undefined = undefined,
-      >(path: string, config: ScopedRouterConvenienceConfig<S, B, P, Q, R, Rs, H, C, Context>): ApiRouter<S, Context> {
+        const Upload extends UploadConfig | undefined = undefined,
+      >(path: string, config: ScopedRouterConvenienceConfig<S, B, P, Q, R, Rs, H, C, Context, Upload>): ApiRouter<S, Context> {
         const routePath = joinPaths(normalizedPrefix, path);
         const routeMiddleware = config.middleware ?? [];
         const routeSecurity = config.security ?? routerSecurity;

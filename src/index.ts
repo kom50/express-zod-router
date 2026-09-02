@@ -29,6 +29,9 @@ export type {
   SecurityReference,
   RouteSecurity,
   UploadConfig,
+  UploadConstraints,
+  UploadFieldConfig,
+  MultipartParser,
   UploadedFile,
 } from './types';
 

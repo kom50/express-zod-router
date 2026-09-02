@@ -51,15 +51,51 @@ export interface UploadedFile {
   buffer?: Buffer;
 }
 
+export type UploadSize = number | `${number}${'B' | 'KB' | 'MB' | 'GB'}`;
+
+export interface UploadConstraints {
+  maxSize?: UploadSize;
+  mimeTypes?: readonly string[];
+}
+
+export interface UploadFieldConfig {
+  maxFiles?: number;
+  minFiles?: number;
+  required?: boolean;
+  constraints?: UploadConstraints;
+}
+
+export interface MultipartParser {
+  single(field: string): RequestHandler;
+  array(field: string, maxFiles?: number): RequestHandler;
+  fields(fields: readonly { name: string; maxCount?: number }[]): RequestHandler;
+}
+
 export type UploadConfig =
   | {
       type: 'single';
       field: string;
+      maxFiles?: never;
+      minFiles?: never;
+      fields?: never;
+      required?: boolean;
+      constraints?: UploadConstraints;
     }
   | {
       type: 'multiple';
       field: string;
       maxFiles?: number;
+      minFiles?: number;
+      fields?: never;
+      required?: boolean;
+      constraints?: UploadConstraints;
+    }
+  | {
+      type: 'fields';
+      field?: never;
+      maxFiles?: never;
+      minFiles?: never;
+      fields: Record<string, UploadFieldConfig>;
     };
 
 export type OpenApiSecuritySchemeObject =
@@ -110,7 +146,8 @@ export type TypedRequest<
   H extends ZodType | undefined = undefined,
   C extends ZodType | undefined = undefined,
   Context extends RequestContext = RequestContext,
-> = Omit<ContextRequest<Context>, 'body' | 'params' | 'query' | 'headers' | 'cookies'> & {
+  Upload extends UploadConfig | undefined = undefined,
+> = Omit<ContextRequest<Context>, 'body' | 'params' | 'query' | 'headers' | 'cookies' | 'file' | 'files'> & {
   body: B extends ZodType ? z.infer<B> : B extends { schema: infer S extends ZodType } ? z.infer<S> : Request['body'];
   params: P extends ZodType ? z.infer<P> : Request['params'];
   query: Q extends ZodType ? z.infer<Q> : Request['query'];
@@ -120,9 +157,22 @@ export type TypedRequest<
    * `req.signedCookies` and are intentionally not merged into this contract.
    */
   cookies: C extends ZodType ? z.infer<C> : Record<string, unknown>;
-  file?: UploadedFile;
-  files?: UploadedFile[] | Record<string, UploadedFile[]>;
-};
+} & (Upload extends { type: 'single' }
+  ? Upload extends { required: false }
+    ? { file?: UploadedFile; files?: never }
+    : { file: UploadedFile; files?: never }
+  : Upload extends { type: 'multiple' }
+    ? Upload extends { required: false }
+      ? { file?: never; files?: UploadedFile[] }
+      : { file?: never; files: UploadedFile[] }
+    : Upload extends { type: 'fields'; fields: infer Fields extends Record<string, UploadFieldConfig> }
+      ? {
+          file?: never;
+          files: {
+            [Name in keyof Fields]: Fields[Name] extends { required: false } ? UploadedFile[] | undefined : UploadedFile[];
+          };
+        }
+      : { file?: UploadedFile; files?: UploadedFile[] | Record<string, UploadedFile[]> });
 
 export interface RouteSchemaConfig<TSchema extends ZodType = ZodType> {
   schema: TSchema;
@@ -191,6 +241,7 @@ export interface RouteConfig<
   H extends ZodType | undefined = undefined,
   C extends ZodType | undefined = undefined,
   Context extends RequestContext = RequestContext,
+  Upload extends UploadConfig | undefined = undefined,
 > {
   method: Method;
   path: string;
@@ -208,7 +259,7 @@ export interface RouteConfig<
   headers?: H;
   cookies?: C;
   security?: RouteSecurity<S>;
-  upload?: UploadConfig;
+  upload?: Upload;
 
   /**
    * Route-level middleware. Executes after global middleware, before validation.
@@ -241,7 +292,7 @@ export interface RouteConfig<
   responseDescription?: string;
 
   handler: (
-    req: TypedRequest<B, P, Q, H, C, Context>,
+    req: TypedRequest<B, P, Q, H, C, Context, Upload>,
     res: Response,
   ) => Rs extends Record<number, ResponseConfig>
     ? InferResponses<Rs> | InferSuccessResponseBody<Rs> | Promise<InferResponses<Rs> | InferSuccessResponseBody<Rs>> | Response | Promise<Response>
@@ -287,7 +338,8 @@ export type RouteConfigWithoutMethod<
   H extends ZodType | undefined = undefined,
   C extends ZodType | undefined = undefined,
   Context extends RequestContext = RequestContext,
-> = Omit<RouteConfig<S, B, P, Q, R, Rs, H, C, Context>, 'method' | 'path'>;
+  Upload extends UploadConfig | undefined = undefined,
+> = Omit<RouteConfig<S, B, P, Q, R, Rs, H, C, Context, Upload>, 'method' | 'path'>;
 
 /**
  * Convenience route config for root API methods.
@@ -303,7 +355,8 @@ export type RootApiConvenienceConfig<
   H extends ZodType | undefined = undefined,
   C extends ZodType | undefined = undefined,
   Context extends RequestContext = RequestContext,
-> = RouteConfigWithoutMethod<S, B, P, Q, R, Rs, H, C, Context>;
+  Upload extends UploadConfig | undefined = undefined,
+> = RouteConfigWithoutMethod<S, B, P, Q, R, Rs, H, C, Context, Upload>;
 
 /**
  * Convenience route config for scoped router methods.
@@ -319,7 +372,8 @@ export type ScopedRouterConvenienceConfig<
   H extends ZodType | undefined = undefined,
   C extends ZodType | undefined = undefined,
   Context extends RequestContext = RequestContext,
-> = Omit<RouteConfigWithoutMethod<S, B, P, Q, R, Rs, H, C, Context>, 'path' | 'tags' | 'security'> & {
+  Upload extends UploadConfig | undefined = undefined,
+> = Omit<RouteConfigWithoutMethod<S, B, P, Q, R, Rs, H, C, Context, Upload>, 'path' | 'tags' | 'security'> & {
   version?: ApiVersion | false;
   security?: RouteSecurity<S>;
 };
@@ -335,10 +389,10 @@ export type RootApiMethodSignature<S extends AnySecuritySchemes = AnySecuritySch
   Rs extends Record<number, ResponseConfig> | undefined = undefined,
   H extends ZodType | undefined = undefined,
   C extends ZodType | undefined = undefined,
-  
+  const Upload extends UploadConfig | undefined = undefined,
 >(
   path: string,
-  config: RootApiConvenienceConfig<S, B, P, Q, R, Rs, H, C, Context>,
+  config: RootApiConvenienceConfig<S, B, P, Q, R, Rs, H, C, Context, Upload>,
 ) => ApiRouter<S, Context>;
 
 /**
@@ -352,9 +406,10 @@ export type ScopedRouterMethodSignature<S extends AnySecuritySchemes = AnySecuri
   Rs extends Record<number, ResponseConfig> | undefined = undefined,
   H extends ZodType | undefined = undefined,
   C extends ZodType | undefined = undefined,
+  const Upload extends UploadConfig | undefined = undefined,
 >(
   path: string,
-  config: ScopedRouterConvenienceConfig<S, B, P, Q, R, Rs, H, C, Context>,
+  config: ScopedRouterConvenienceConfig<S, B, P, Q, R, Rs, H, C, Context, Upload>,
 ) => ApiRouter<S, Context>;
 
 export type ScopedRouter<S extends AnySecuritySchemes = AnySecuritySchemes, Context extends RequestContext = RequestContext> = {
@@ -366,8 +421,9 @@ export type ScopedRouter<S extends AnySecuritySchemes = AnySecuritySchemes, Cont
     Rs extends Record<number, ResponseConfig> | undefined = undefined,
     H extends ZodType | undefined = undefined,
     C extends ZodType | undefined = undefined,
+    const Upload extends UploadConfig | undefined = undefined,
   >(
-    config: RouteConfig<S, B, P, Q, R, Rs, H, C, Context>,
+    config: RouteConfig<S, B, P, Q, R, Rs, H, C, Context, Upload>,
   ): ApiRouter<S, Context>;
 
   get: ScopedRouterMethodSignature<S, Context>;
@@ -388,8 +444,9 @@ export interface ApiRouter<S extends AnySecuritySchemes = AnySecuritySchemes, Co
     Rs extends Record<number, ResponseConfig> | undefined = undefined,
     H extends ZodType | undefined = undefined,
     C extends ZodType | undefined = undefined,
+    const Upload extends UploadConfig | undefined = undefined,
   >(
-    config: RouteConfig<S, B, P, Q, R, Rs, H, C, Context>,
+    config: RouteConfig<S, B, P, Q, R, Rs, H, C, Context, Upload>,
   ) => ApiRouter<S, Context>;
 
   get: RootApiMethodSignature<S, Context>;

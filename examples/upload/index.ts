@@ -5,28 +5,33 @@ import { createApiRouter, z } from 'express-zod-router';
 const app = express();
 const upload = multer({ storage: multer.memoryStorage() });
 
-const api = createApiRouter({ prefix: '/api' });
+const api = createApiRouter({
+  prefix: '/api',
+  multipart: upload,
+  onError: ({ error }) => {
+    console.error(error);
+  },
+});
 
 api.post('/avatar', {
   upload: {
     type: 'single',
     field: 'avatar',
+    constraints: {
+      maxSize: '5MB',
+      mimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
+    },
   },
-  middleware: [upload.single('avatar')],
   response: z.object({
     filename: z.string(),
     mimetype: z.string(),
     size: z.number(),
   }),
-  handler: (req) => {
-    if (!req.file) {
-      throw new Error('avatar file is required');
-    }
-
+  handler: ({ file }) => {
     return {
-      filename: req.file.originalname,
-      mimetype: req.file.mimetype,
-      size: req.file.size,
+      filename: file.originalname,
+      mimetype: file.mimetype,
+      size: file.size,
     };
   },
 });
@@ -36,15 +41,13 @@ api.post('/documents', {
     type: 'multiple',
     field: 'files',
     maxFiles: 5,
+    minFiles: 1,
   },
-  middleware: [upload.array('files', 5)],
   response: z.object({
     count: z.number(),
     filenames: z.array(z.string()),
   }),
-  handler: (req) => {
-    const files = Array.isArray(req.files) ? req.files : [];
-
+  handler: ({ files }) => {
     return {
       count: files.length,
       filenames: files.map((file) => file.originalname),
@@ -63,32 +66,45 @@ api.post('/products/import', {
     field: 'image',
   },
   body: ProductImport,
-  middleware: [upload.single('image')],
   response: z.object({
     ok: z.literal(true),
     name: z.string(),
     price: z.number(),
     image: z.string(),
   }),
-  handler: (req) => {
-    if (!req.file) {
-      throw new Error('image file is required');
-    }
-
+  handler: ({ body, file }) => {
     return {
       ok: true as const,
-      name: req.body.name,
-      price: req.body.price,
-      image: req.file.originalname,
+      name: body.name,
+      price: body.price,
+      image: file.originalname,
     };
   },
+});
+
+api.post('/profile', {
+  upload: {
+    type: 'fields',
+    fields: {
+      avatar: { maxFiles: 1, constraints: { mimeTypes: ['image/png'] } },
+      documents: { maxFiles: 5, required: false },
+    },
+  },
+  response: z.object({
+    avatar: z.number(),
+    documents: z.number(),
+  }),
+  handler: ({ files }) => ({
+    avatar: files.avatar.length,
+    documents: files.documents?.length ?? 0,
+  }),
 });
 
 api.docs({
   info: {
     title: 'Upload API',
     version: '1.0.0',
-    description: 'Multipart single-file, multiple-file and file-plus-form-field examples.',
+    description: 'Declarative multipart single-file, multiple-file, named-field, and file-plus-form-field examples.',
   },
 });
 
@@ -100,4 +116,5 @@ app.listen(3006, () => {
   console.log('Single file:  POST /api/avatar (field: avatar)');
   console.log('Multiple:     POST /api/documents (field: files)');
   console.log('File + form:  POST /api/products/import (image, name, price)');
+  console.log('Named fields: POST /api/profile (avatar, documents)');
 });
