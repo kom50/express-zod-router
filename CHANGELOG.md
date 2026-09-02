@@ -31,3 +31,13 @@ This project follows [Semantic Versioning](https://semver.org/).
 ## Unreleased
 
 Changes that are merged but not yet released should be documented here before the next version is published.
+
+## [1.1.0] - 2026-09-02
+
+### Added
+
+- Declarative multipart upload contracts for single files, multiple files, and named fields, with typed request files, validation constraints, and OpenAPI multipart schemas.
+- Router-level multipart parser configuration compatible with Express upload middleware such as Multer.
+- Type-safe request context support for global and route middleware.
+- Lifecycle hooks for observing requests, responses, and errors with request duration information.
+- Zod validation and typed request access for headers and cookies, including OpenAPI parameter generation.
