@@ -1,17 +1,17 @@
 # File Upload
 
-`express-zod-router` provides a contract for documenting file uploads while leaving multipart parsing to the application's chosen middleware.
+`express-zod-router` provides a declarative upload contract. Configure an Express-compatible multipart parser once on the API router, then let each route declare the files it accepts.
 
 ## Quick example
 
 ```ts
+const api = createApiRouter({ multipart: upload });
+
 api.post('/avatar', {
   upload: {
     type: 'single',
     field: 'avatar',
   },
-
-  middleware: [upload.single('avatar')],
 
   handler: async (req) => {
     const file = req.file;
@@ -25,11 +25,14 @@ api.post('/avatar', {
 
 ## Upload configuration
 
-| Option     | Type                     | Description                                        |
-| ---------- | ------------------------ | -------------------------------------------------- |
-| `type`     | `"single" \| "multiple"` | Defines whether one or multiple files are expected |
-| `field`    | `string`                 | Multipart field name                               |
-| `maxFiles` | `number`                 | Maximum number of files for multiple uploads       |
+| Option        | Type                                  | Description                                   |
+| ------------- | ------------------------------------- | --------------------------------------------- |
+| `type`        | `"single" \| "multiple" \| "fields"` | Defines the expected file shape               |
+| `field`       | `string`                              | Multipart field name for single/multiple      |
+| `maxFiles`    | `number`                              | Maximum files for a multiple upload           |
+| `minFiles`    | `number`                              | Minimum files for a multiple upload           |
+| `fields`      | `Record<string, UploadFieldConfig>`   | Named file fields for `type: "fields"`       |
+| `constraints` | `{ maxSize?, mimeTypes? }`            | Per-file size and MIME type validation rules  |
 
 ## Single file upload
 
@@ -42,8 +45,6 @@ api.post('/avatar', {
     field: 'avatar',
   },
 
-  middleware: [upload.single('avatar')],
-
   handler: async (req) => {
     const file = req.file;
 
@@ -52,7 +53,27 @@ api.post('/avatar', {
 });
 ```
 
-The `field` should match the multipart field handled by the upload middleware.
+The `field` is the single source of truth: the router derives the parser configuration from it.
+
+## Multiple named file fields
+
+Use `type: "fields"` when a route accepts several named file inputs.
+
+```ts
+api.post('/profile', {
+  upload: {
+    type: 'fields',
+    fields: {
+      avatar: { maxFiles: 1 },
+      documents: { maxFiles: 5, required: false },
+    },
+  },
+  handler: ({ files }) => ({
+    avatar: files.avatar,
+    documents: files.documents,
+  }),
+});
+```
 
 ## Multiple file upload
 
@@ -65,8 +86,6 @@ api.post('/documents', {
     field: 'files',
     maxFiles: 5,
   },
-
-  middleware: [upload.array('files', 5)],
 
   handler: async (req) => {
     const files = req.files;
@@ -92,16 +111,16 @@ const upload = multer({
 });
 ```
 
-Then attach it to the route:
+Pass it when creating the API router:
 
 ```ts
+const api = createApiRouter({ multipart: upload });
+
 api.post('/avatar', {
   upload: {
     type: 'single',
     field: 'avatar',
   },
-
-  middleware: [upload.single('avatar')],
 
   handler: async (req) => {
     return processAvatar(req.file);
@@ -109,7 +128,7 @@ api.post('/avatar', {
 });
 ```
 
-This keeps multipart parsing separate from the API contract.
+The router configures the parser from each route contract. The parser remains responsible for multipart decoding and parser-specific limits.
 
 ## Request content type
 
@@ -171,7 +190,7 @@ formData.append('files', file2);
 
 ## File limits
 
-For multiple uploads, `maxFiles` can document the expected maximum:
+For multiple uploads, `maxFiles` and `minFiles` describe the allowed file count:
 
 ```ts
 upload: {
@@ -181,53 +200,35 @@ upload: {
 }
 ```
 
-The actual enforcement should be configured in the multipart middleware.
-
-For example:
+Use `constraints` for per-file rules. `maxSize` accepts bytes or a unit string, and `mimeTypes` lists allowed content types.
 
 ```ts
-middleware: [upload.array('files', 5)];
+upload: {
+  type: 'single',
+  field: 'avatar',
+  constraints: {
+    maxSize: '5MB',
+    mimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
+  },
+}
 ```
+
+The router validates declared counts, sizes, and MIME types after the configured parser populates the request. Parser-level limits can still be configured as an additional application safeguard.
 
 ## Upload validation
 
-File upload contracts and file validation are separate concerns.
+The upload contract validates required files, file counts, MIME types, and file sizes. Validation that depends on file contents, storage, permissions, or application policy stays in the handler.
 
-The `upload` configuration describes the expected multipart structure.
-
-Application-level validation can additionally check:
-
-- File type
-- File size
-- File extension
-- Number of files
-- File contents
-- User permissions
-
-For example:
+For example, `required: false` makes a file optional:
 
 ```ts
 api.post('/avatar', {
   upload: {
     type: 'single',
     field: 'avatar',
+    required: false,
   },
-
-  middleware: [upload.single('avatar')],
-
-  handler: async (req) => {
-    const file = req.file;
-
-    if (!file) {
-      throw new ApiError(400, 'Avatar is required');
-    }
-
-    if (!file.mimetype.startsWith('image/')) {
-      throw new ApiError(400, 'Only image files are allowed');
-    }
-
-    return saveAvatar(file);
-  },
+  handler: ({ file }) => (file ? saveAvatar(file) : { uploaded: false }),
 });
 ```
 
@@ -239,24 +240,27 @@ For example:
 
 ```ts
 api.post('/profile', {
+  body: z.object({
+    name: z.string().min(1),
+    age: z.coerce.number().int(),
+  }),
   upload: {
     type: 'single',
     field: 'avatar',
   },
-
-  middleware: [upload.single('avatar')],
-
-  handler: async (req) => {
-    const name = req.body.name;
-    const avatar = req.file;
+  handler: ({ body, file }) => {
+    const { name, age } = body;
 
     return updateProfile({
       name,
-      avatar,
+      age,
+      avatar: file,
     });
   },
 });
 ```
+
+The configured parser runs before the route body schema. Normal form fields remain in `req.body` and receive the same Zod coercion and validation as JSON requests; files remain separate in `req.file` or `req.files`.
 
 ## OpenAPI documentation
 
@@ -268,9 +272,6 @@ api.post('/avatar', {
     type: 'single',
     field: 'avatar',
   },
-
-  middleware: [upload.single('avatar')],
-
   summary: 'Upload avatar',
   tags: ['Users'],
 
@@ -291,9 +292,9 @@ See the complete working upload example:
 - Use `upload` to describe the file-upload contract.
 - Use `type: "single"` for one file.
 - Use `type: "multiple"` for multiple files.
-- Use `field` to define the multipart field name.
-- Use `maxFiles` to describe the maximum number of files.
-- Multipart parsing is delegated to Express-compatible middleware.
-- The upload middleware should enforce actual file limits and restrictions.
+- Use `type: "fields"` and an object map for named file groups.
+- Use `field`, `fields`, and count limits as the route's single source of truth.
+- Configure the multipart parser once through `createApiRouter({ multipart })`.
+- Declare `constraints` for size and MIME validation.
 - Upload endpoints use `multipart/form-data`.
-- File validation such as MIME type, size, and content can be handled in middleware or application logic.
+- The parser handles decoding; application logic handles storage and content-specific validation.

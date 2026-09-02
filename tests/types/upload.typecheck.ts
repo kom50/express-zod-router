@@ -1,4 +1,5 @@
 import { createApiRouter, z } from '../../src';
+import type { UploadedFile } from '../../src';
 
 const api = createApiRouter();
 
@@ -45,6 +46,24 @@ api.post('/products/import', {
   },
 });
 
+api.post('/profile', {
+  upload: {
+    type: 'fields',
+    fields: {
+      avatar: { maxFiles: 1 },
+      documents: { maxFiles: 5, required: false },
+    },
+  },
+  response: z.object({ count: z.number() }),
+  handler: ({ files }) => {
+    const avatar: UploadedFile[] = files.avatar;
+    const documents: UploadedFile[] | undefined = files.documents;
+    // @ts-expect-error only declared field names are available
+    files.coverLetter;
+    return { count: avatar.length + (documents?.length ?? 0) };
+  },
+});
+
 api.post('/invalid-upload', {
   upload: {
     // @ts-expect-error invalid upload type
@@ -68,8 +87,8 @@ api.post('/invalid-upload-maxfiles-on-single', {
   upload: {
     type: 'single',
     field: 'avatar',
-    // @ts-expect-error maxFiles not allowed for single
-    maxFiles: 2,
+    // @ts-expect-error fields belongs to the fields upload variant
+    fields: {},
   },
   response: z.object({ ok: z.boolean() }),
   handler: () => ({ ok: true }),

@@ -79,7 +79,7 @@ export function buildOpenApiOperationOverrides(overrides?: OpenApiOperationOverr
   return operationOverrides;
 }
 
-function buildMultipartFieldSchema(upload: UploadConfig): ZodType {
+function buildMultipartFieldSchema(upload: Exclude<UploadConfig, { type: 'fields' }>): ZodType {
   if (upload.type === 'single') {
     return z.string().openapi({
       type: 'string',
@@ -104,22 +104,49 @@ function buildMultipartFieldSchema(upload: UploadConfig): ZodType {
     });
 }
 
+function multipartFields(upload: UploadConfig): [string, ZodType][] {
+  if (upload.type === 'fields') {
+    return Object.entries(upload.fields).map(([name, field]) => {
+      const schema = buildMultipartFieldSchema({ type: 'multiple', field: name, maxFiles: field.maxFiles });
+      return [name, field.required === false ? schema.optional() : schema];
+    });
+  }
+
+  const schema = buildMultipartFieldSchema(upload);
+  return [[upload.field, upload.required === false ? schema.optional() : schema]];
+}
+
 function mergeMultipartBodySchema(schema: ZodType, upload: UploadConfig): ZodType {
   const shape = (schema as any)?._def?.shape ? (schema as any)._def.shape() : undefined;
 
   if (shape) {
     return z.object({
       ...shape,
-      [upload.field]: buildMultipartFieldSchema(upload),
+      ...Object.fromEntries(multipartFields(upload)),
     });
   }
 
-  return z.object({
-    [upload.field]: buildMultipartFieldSchema(upload),
-  });
+  return z.object(Object.fromEntries(multipartFields(upload)));
 }
 
 function buildMultipartSchemaFromUpload(upload: UploadConfig): Record<string, unknown> {
+  if (upload.type === 'fields') {
+    const properties = Object.fromEntries(
+      Object.entries(upload.fields).map(([name, field]) => [
+        name,
+        {
+          type: 'array',
+          items: { type: 'string', format: 'binary' },
+          ...(field.maxFiles !== undefined ? { maxItems: field.maxFiles } : {}),
+        },
+      ]),
+    );
+    const required = Object.entries(upload.fields)
+      .filter(([, field]) => field.required !== false)
+      .map(([name]) => name);
+    return { type: 'object', properties, ...(required.length > 0 ? { required } : {}) };
+  }
+
   if (upload.type === 'single') {
     return {
       type: 'object',
@@ -155,7 +182,7 @@ export function buildOpenApiRequestBody(schema: ZodType | undefined, example: un
   }
 
   if (upload) {
-    const multipartSchema = schema ? mergeMultipartBodySchema(schema, upload) : z.object({ [upload.field]: buildMultipartFieldSchema(upload) });
+    const multipartSchema = schema ? mergeMultipartBodySchema(schema, upload) : z.object(Object.fromEntries(multipartFields(upload)));
 
     return {
       content: {
