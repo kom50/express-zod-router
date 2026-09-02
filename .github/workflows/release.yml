@@ -8,6 +8,7 @@ on:
 permissions:
   contents: read
   id-token: write
+  pages: write # Added for GitHub Pages deployment
 
 jobs:
   publish:
@@ -44,3 +45,35 @@ jobs:
 
       - name: Publish package to npm
         run: npm publish --provenance --access public
+
+  deploy-docs:
+    name: Build & Deploy Documentation
+    needs: publish # Only runs if npm publish succeeds!
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Setup GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Build VitePress
+        run: npm run docs:build
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: docs/.vitepress/dist
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
