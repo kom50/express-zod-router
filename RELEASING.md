@@ -114,7 +114,7 @@ npm pack --dry-run
 npm publish
 ```
 
-The release workflow uses npm provenance/Trusted Publishing through GitHub Actions. Configure the npm trusted publisher for this repository before the first automated release.
+The release workflow uses npm provenance through GitHub Actions and authenticates publish with the `NPM_TOKEN` repository secret.
 
 Do not publish manually from a developer machine unless the automated release process is unavailable and a manual release is intentionally required.
 
