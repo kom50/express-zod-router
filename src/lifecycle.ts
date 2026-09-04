@@ -3,6 +3,7 @@ import { chainMiddleware } from './middleware';
 import type { NormalizedRoute } from './route-contract';
 import { createRuntimeHandler } from './runtime';
 import type { ApiLifecycleHooks, Middleware, RequestContext } from './types';
+import type { ApiErrorHandlingOptions } from './errors';
 
 async function invokeHook(callback: (() => void | Promise<void>) | undefined): Promise<void> {
   try {
@@ -16,6 +17,7 @@ export function createLifecycleHandler<Context extends RequestContext>(
   route: NormalizedRoute,
   middleware: Middleware<Context>[],
   hooks: ApiLifecycleHooks,
+  errorOptions?: ApiErrorHandlingOptions,
 ): RequestHandler {
   return async (req: Request, res: Response, next) => {
     Object.defineProperty(req, 'context', {
@@ -38,7 +40,7 @@ export function createLifecycleHandler<Context extends RequestContext>(
     });
 
     await invokeHook(() => hooks.onRequest?.({ req, startTime }));
-    const handler = chainMiddleware(middleware, createRuntimeHandler(route, reportError), reportError);
+    const handler = chainMiddleware(middleware, createRuntimeHandler(route, reportError, errorOptions), reportError, errorOptions);
     await handler(req, res, next);
   };
 }

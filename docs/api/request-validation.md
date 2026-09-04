@@ -21,13 +21,13 @@ api.post('/users', {
 
 ## Supported request inputs
 
-| Input    | Configuration | Purpose                          |
-| -------- | ------------- | -------------------------------- |
-| `body`   | `ZodType`     | Validates and types `req.body`   |
-| `params` | `ZodType`     | Validates and types `req.params` |
-| `query`  | `ZodType`     | Validates and types `req.query`  |
-| `headers` | `ZodType`    | Validates and types `req.headers` |
-| `cookies` | `ZodType`    | Validates and types `req.cookies` |
+| Input     | Configuration | Purpose                           |
+| --------- | ------------- | --------------------------------- |
+| `body`    | `ZodType`     | Validates and types `req.body`    |
+| `params`  | `ZodType`     | Validates and types `req.params`  |
+| `query`   | `ZodType`     | Validates and types `req.query`   |
+| `headers` | `ZodType`     | Validates and types `req.headers` |
+| `cookies` | `ZodType`     | Validates and types `req.cookies` |
 
 ## `body`
 
@@ -236,8 +236,10 @@ Invalid request data produces the standard validation error response.
 
 ```json
 {
-  "error": "Validation failed",
-  "details": []
+  "status": 400,
+  "code": "VALIDATION_ERROR",
+  "message": "Request validation failed",
+  "details": { "source": "body", "issues": [] }
 }
 ```
 

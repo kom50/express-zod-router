@@ -41,7 +41,7 @@ describe('request headers and cookies', () => {
     expect(valid.status).toBe(200);
     expect(valid.body).toEqual({ tenant: '123e4567-e89b-12d3-a456-426614174000', token: 'token-123' });
     expect(invalid.status).toBe(400);
-    expect(invalid.body.error).toBe('Validation failed');
+    expect(invalid.body.code).toBe('VALIDATION_ERROR');
   });
 
   it('validates parsed cookies and documents header and cookie parameters in OpenAPI', async () => {

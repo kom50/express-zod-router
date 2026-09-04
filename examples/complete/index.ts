@@ -1,6 +1,6 @@
 import express, { type RequestHandler } from 'express';
 import multer from 'multer';
-import { ApiError, createApiRouter, z } from 'express-zod-router';
+import { ApiError, createApiRouter, ErrorSchema, z } from 'express-zod-router';
 
 const app = express();
 app.use(express.json());
@@ -82,9 +82,7 @@ usersV1.get('/', {
   }),
   response: z.array(User),
   handler: (req) => {
-    const filtered = req.query.role
-      ? users.filter((user) => user.role === req.query.role)
-      : users;
+    const filtered = req.query.role ? users.filter((user) => user.role === req.query.role) : users;
 
     return filtered.slice(0, req.query.limit);
   },
@@ -95,11 +93,11 @@ usersV1.get('/:id', {
   params: z.object({ id: z.string().uuid() }),
   responses: {
     200: { schema: User, description: 'User found' },
-    404: { description: 'User not found' },
+    404: { schema: ErrorSchema, description: 'User not found' },
   },
   handler: (req) => {
     const user = users.find((item) => item.id === req.params.id);
-    if (!user) throw new ApiError(404, 'User not found');
+    if (!user) throw new ApiError({ status: 404, code: 'USER_NOT_FOUND', message: 'User not found' });
     return user;
   },
 });
@@ -141,11 +139,11 @@ usersV1.patch('/:id', {
   body: UpdateUser,
   responses: {
     200: { schema: User },
-    404: { description: 'User not found' },
+    404: { schema: ErrorSchema, description: 'User not found' },
   },
   handler: (req) => {
     const user = users.find((item) => item.id === req.params.id);
-    if (!user) throw new ApiError(404, 'User not found');
+    if (!user) throw new ApiError({ status: 404, code: 'USER_NOT_FOUND', message: 'User not found' });
 
     Object.assign(user, req.body);
     return user;
@@ -157,11 +155,11 @@ usersV1.delete('/:id', {
   params: z.object({ id: z.string().uuid() }),
   responses: {
     204: { description: 'User deleted' },
-    404: { description: 'User not found' },
+    404: { schema: ErrorSchema, description: 'User not found' },
   },
   handler: (req) => {
     const index = users.findIndex((item) => item.id === req.params.id);
-    if (index === -1) throw new ApiError(404, 'User not found');
+    if (index === -1) throw new ApiError({ status: 404, code: 'USER_NOT_FOUND', message: 'User not found' });
 
     users.splice(index, 1);
     return { status: 204 as const };
@@ -182,7 +180,7 @@ usersV2.get('/:id', {
   response: User.extend({ apiVersion: z.literal('v2') }),
   handler: (req) => {
     const user = users.find((item) => item.id === req.params.id);
-    if (!user) throw new ApiError(404, 'User not found');
+    if (!user) throw new ApiError({ status: 404, code: 'USER_NOT_FOUND', message: 'User not found' });
 
     return { ...user, apiVersion: 'v2' as const };
   },
@@ -231,7 +229,7 @@ api.post('/files', {
     mimetype: z.string(),
   }),
   handler: (req) => {
-    if (!req.file) throw new ApiError(400, 'file is required');
+    if (!req.file) throw new ApiError({ status: 400, code: 'FILE_REQUIRED', message: 'file is required' });
 
     return {
       filename: req.file.originalname,
@@ -264,10 +262,12 @@ api.docs({
     version: '1.0.0',
     description: 'Combined example covering validation, typing, middleware, auth, security metadata, versioning, uploads, responses and OpenAPI.',
   },
-  servers: [{
-    url: 'http://localhost:3007',
-    description: 'Local development server',
-  }],
+  servers: [
+    {
+      url: 'http://localhost:3007',
+      description: 'Local development server',
+    },
+  ],
   swagger: {
     explorer: true,
     customSiteTitle: 'Complete API',

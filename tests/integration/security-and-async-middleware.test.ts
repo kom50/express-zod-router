@@ -118,6 +118,6 @@ describe('docs: security metadata and async middleware', () => {
     const errorRes = await request(errorApp).get('/api/boom');
 
     expect(errorRes.status).toBe(500);
-    expect(errorRes.body.error).toBe('middleware broke');
+    expect(errorRes.body).toEqual({ status: 500, code: 'INTERNAL_SERVER_ERROR', message: 'Internal server error' });
   });
 });

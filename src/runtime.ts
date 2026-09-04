@@ -1,5 +1,5 @@
 import type { NextFunction, Request, RequestHandler, Response } from 'express';
-import { ApiError, handleRouteError } from './errors';
+import { ApiError, handleRouteError, toRequestValidationError, type ApiErrorHandlingOptions, type ValidationSource } from './errors';
 import type { NormalizedRoute } from './route-contract';
 import type { UploadedFile, UploadConstraints, UploadConfig, UploadSize } from './types';
 
@@ -68,21 +68,31 @@ function validateUpload(upload: UploadConfig | undefined, req: MultipartRequest)
 }
 
 /** Express runtime adapter. It executes only the normalized route contract. */
-export function createRuntimeHandler(route: NormalizedRoute, onError?: RouteErrorObserver): RequestHandler {
+export function createRuntimeHandler(route: NormalizedRoute, onError?: RouteErrorObserver, errorOptions?: ApiErrorHandlingOptions): RequestHandler {
   return async (req: Request, res: Response, next: NextFunction) => {
+    let validationSource: ValidationSource = 'body';
     try {
-      if (route.request.body) req.body = route.request.body.schema.parse(req.body);
+      if (route.request.body) {
+        validationSource = 'body';
+        req.body = route.request.body.schema.parse(req.body);
+      }
       validateUpload(route.request.upload, req as MultipartRequest);
-      if (route.request.params) req.params = route.request.params.parse(req.params) as typeof req.params;
+      if (route.request.params) {
+        validationSource = 'params';
+        req.params = route.request.params.parse(req.params) as typeof req.params;
+      }
 
       const parsedRequest: Record<string, unknown> = {};
       if (route.request.query) {
+        validationSource = 'query';
         parsedRequest.query = route.request.query.parse(req.query);
       }
       if (route.request.headers) {
+        validationSource = 'headers';
         parsedRequest.headers = route.request.headers.parse(caseInsensitiveHeaders(req.headers));
       }
       if (route.request.cookies) {
+        validationSource = 'cookies';
         parsedRequest.cookies = route.request.cookies.parse(getCookies(req));
       }
 
@@ -130,6 +140,7 @@ export function createRuntimeHandler(route: NormalizedRoute, onError?: RouteErro
       }
 
       const definition = route.response.definitions.find((entry) => entry.status === responseStatus);
+      validationSource = 'response';
       const payload = definition?.schema ? definition.schema.parse(rawBody) : rawBody;
       if (responseStatus === 204) {
         res.status(204).send();
@@ -138,7 +149,7 @@ export function createRuntimeHandler(route: NormalizedRoute, onError?: RouteErro
       res.status(responseStatus).json(payload);
     } catch (error) {
       await onError?.(error);
-      handleRouteError(error, res, next);
+      handleRouteError(toRequestValidationError(validationSource, error) ?? error, res, next, errorOptions);
     }
   };
 }

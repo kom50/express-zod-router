@@ -83,8 +83,13 @@ describe('routes: middleware and validation', () => {
     const res = await request(app).post('/users').send({ age: 17 });
 
     expect(res.status).toBe(400);
-    expect(res.body.error).toBe('Validation failed');
-    expect(Array.isArray(res.body.details)).toBe(true);
+    expect(res.body).toMatchObject({
+      status: 400,
+      code: 'VALIDATION_ERROR',
+      message: 'Request validation failed',
+      details: { source: 'body' },
+    });
+    expect(Array.isArray(res.body.details.issues)).toBe(true);
   });
 
   it('returns structured ApiError responses for business-level failures', async () => {
@@ -96,7 +101,7 @@ describe('routes: middleware and validation', () => {
       path: '/forbidden',
       response: z.object({ ok: z.boolean() }),
       handler: () => {
-        throw new ApiError(403, 'Forbidden', { reason: 'missing_scope' });
+        throw new ApiError({ status: 403, code: 'FORBIDDEN', message: 'Forbidden', details: { reason: 'missing_scope' } });
       },
     });
 
@@ -106,8 +111,58 @@ describe('routes: middleware and validation', () => {
 
     expect(res.status).toBe(403);
     expect(res.body).toEqual({
-      error: 'Forbidden',
+      status: 403,
+      code: 'FORBIDDEN',
+      message: 'Forbidden',
       details: { reason: 'missing_scope' },
+    });
+  });
+
+  it('does not expose unexpected error messages', async () => {
+    const app = express();
+    const api = createApiRouter();
+
+    api.get('/internal-error', {
+      response: z.object({ ok: z.boolean() }),
+      handler: () => {
+        throw new Error('postgres://user:secret@database/internal');
+      },
+    });
+    api.mount(app);
+
+    const res = await request(app).get('/internal-error');
+
+    expect(res.status).toBe(500);
+    expect(res.body).toEqual({ status: 500, code: 'INTERNAL_SERVER_ERROR', message: 'Internal server error' });
+  });
+
+  it('supports legacy ApiError construction and global error customization', async () => {
+    const app = express();
+    const api = createApiRouter({
+      errors: {
+        responses: { 500: 'Service unavailable' },
+      },
+    });
+
+    api.get('/legacy-error', {
+      response: z.object({ ok: z.boolean() }),
+      handler: () => {
+        throw new ApiError(409, 'Already exists');
+      },
+    });
+    api.get('/configured-error', {
+      response: z.object({ ok: z.boolean() }),
+      handler: () => {
+        throw 'unexpected';
+      },
+    });
+    api.mount(app);
+
+    expect((await request(app).get('/legacy-error')).body).toEqual({ status: 409, code: 'API_ERROR', message: 'Already exists' });
+    expect((await request(app).get('/configured-error')).body).toEqual({
+      status: 500,
+      code: 'INTERNAL_SERVER_ERROR',
+      message: 'Service unavailable',
     });
   });
 
@@ -127,7 +182,7 @@ describe('routes: middleware and validation', () => {
     const res = await request(app).get('/bad-response');
 
     expect(res.status).toBe(400);
-    expect(res.body.error).toBe('Validation failed');
+    expect(res.body.code).toBe('VALIDATION_ERROR');
   });
 
   it('coerces query params and types them through z.coerce', async () => {
@@ -185,6 +240,6 @@ describe('routes: middleware and validation', () => {
     expect(validRes.status).toBe(200);
     expect(validRes.body).toEqual({ id: '123e4567-e89b-12d3-a456-426614174000' });
     expect(invalidRes.status).toBe(400);
-    expect(invalidRes.body.error).toBe('Validation failed');
+    expect(invalidRes.body.code).toBe('VALIDATION_ERROR');
   });
 });
