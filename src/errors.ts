@@ -11,7 +11,7 @@ export const ErrorSchema = z
     message: z.string(),
     details: z.unknown().optional(),
   })
-  .openapi('Error');
+  .openapi('ApiError');
 
 export interface ErrorResponse {
   status: number;

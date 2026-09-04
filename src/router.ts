@@ -49,7 +49,7 @@ export function createApiRouter<Context extends RequestContext = RequestContext,
   options: CreateApiRouterOptions<S, Context> = {},
 ): ApiRouter<S, Context> {
   const registry = new OpenAPIRegistry();
-  registry.register('Error', options.errors?.schema ?? ErrorSchema);
+  registry.register('ApiError', options.errors?.schema ?? ErrorSchema);
   const registeredRoutes: RegisteredRoute[] = [];
   const operationIds = new Set<string>();
   const globalMiddleware: Middleware<Context>[] = [...(options.middleware ?? [])];

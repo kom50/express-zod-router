@@ -1,7 +1,7 @@
 import express from 'express';
 import request from 'supertest';
 import { describe, it, expect } from 'vitest';
-import { z, createApiRouter } from '../../src';
+import { ErrorSchema, z, createApiRouter } from '../../src';
 
 describe('docs: openapi generation', () => {
   it('exposes a generated OpenAPI document for mounted routes', async () => {
@@ -64,5 +64,28 @@ describe('docs: openapi generation', () => {
     expect(jsonResp.body.paths['/api/ready']).toBeDefined();
     expect(uiResp.status).toBe(200);
     expect(uiResp.text).toContain('swagger');
+  });
+
+  it('uses ApiError as the reusable OpenAPI error schema name', async () => {
+    const app = express();
+    const api = createApiRouter();
+
+    api.get('/users/:id', {
+      params: z.object({ id: z.string() }),
+      responses: {
+        200: { schema: z.object({ id: z.string() }) },
+        404: { schema: ErrorSchema, description: 'User not found' },
+      },
+      handler: () => ({ id: '1' }),
+    });
+    api.docs();
+    api.mount(app);
+
+    const res = await request(app).get('/api-docs.json');
+
+    expect(res.body.components.schemas.ApiError).toBeDefined();
+    expect(res.body.paths['/users/{id}'].get.responses['404'].content['application/json'].schema).toEqual({
+      $ref: '#/components/schemas/ApiError',
+    });
   });
 });
