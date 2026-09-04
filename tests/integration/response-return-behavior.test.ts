@@ -38,7 +38,7 @@ describe('responses: return behavior', () => {
     expect(foundRes.body).toEqual({ id: '1', title: 'Learn Zod router' });
 
     expect(notFoundRes.status).toBe(404);
-    expect(notFoundRes.body.error).toBe('Todo not found');
+    expect(notFoundRes.body).toEqual({ status: 404, code: 'API_ERROR', message: 'Todo not found' });
   });
 
   it('supports explicit reply(status, body) for non-default statuses', async () => {

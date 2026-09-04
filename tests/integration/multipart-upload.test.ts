@@ -244,6 +244,10 @@ describe('multipart upload support', () => {
 
     const response = await request(app).post('/image').attach('image', Buffer.from('text'), 'image.txt');
     expect(response.status).toBe(400);
-    expect(response.body).toEqual({ error: 'Upload field has an unsupported MIME type: image' });
+    expect(response.body).toEqual({
+      status: 400,
+      code: 'API_ERROR',
+      message: 'Upload field has an unsupported MIME type: image',
+    });
   });
 });

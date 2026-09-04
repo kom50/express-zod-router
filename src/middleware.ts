@@ -1,5 +1,5 @@
 import type { NextFunction, Request, RequestHandler, Response } from 'express';
-import { handleRouteError } from './errors';
+import { handleRouteError, type ApiErrorHandlingOptions } from './errors';
 import type { Middleware, RequestContext } from './types';
 import type { RouteErrorObserver } from './runtime';
 
@@ -7,6 +7,7 @@ export function chainMiddleware<Context extends RequestContext>(
   middlewares: Middleware<Context>[],
   finalHandler: RequestHandler,
   onError?: RouteErrorObserver,
+  errorOptions?: ApiErrorHandlingOptions,
 ): RequestHandler {
   if (middlewares.length === 0) {
     return finalHandler;
@@ -77,7 +78,7 @@ export function chainMiddleware<Context extends RequestContext>(
       }
 
       await onError?.(error);
-      handleRouteError(error, res, next);
+      handleRouteError(error, res, next, errorOptions);
     }
   };
 }

@@ -7,22 +7,29 @@
 ```ts
 import { ApiError } from 'express-zod-router';
 
-throw new ApiError(404, 'User not found');
+throw new ApiError({
+  status: 404,
+  code: 'USER_NOT_FOUND',
+  message: 'User not found',
+});
 ```
 
 ## `ApiError`
 
-Create an HTTP error with a status code and message.
+Create an HTTP error with a status code, machine-readable code, message, and optional JSON-compatible details.
 
 ```ts
-throw new ApiError(404, 'User not found');
+throw new ApiError({ status: 404, code: 'USER_NOT_FOUND', message: 'User not found' });
 ```
 
 ### With details
 
 ```ts
-throw new ApiError(400, 'Invalid user', {
-  field: 'email',
+throw new ApiError({
+  status: 400,
+  code: 'INVALID_USER',
+  message: 'Invalid user',
+  details: { field: 'email' },
 });
 ```
 
@@ -30,7 +37,9 @@ The resulting response is:
 
 ```json
 {
-  "error": "Invalid user",
+  "status": 400,
+  "code": "INVALID_USER",
+  "message": "Invalid user",
   "details": {
     "field": "email"
   }
@@ -39,11 +48,13 @@ The resulting response is:
 
 ## Error response format
 
-The standard error response contains an error message:
+Every library-generated error response has this shape:
 
 ```json
 {
-  "error": "User not found"
+  "status": 404,
+  "code": "USER_NOT_FOUND",
+  "message": "User not found"
 }
 ```
 
@@ -51,7 +62,9 @@ When additional details are available:
 
 ```json
 {
-  "error": "Invalid user",
+  "status": 400,
+  "code": "INVALID_USER",
+  "message": "Invalid user",
   "details": {
     "field": "email"
   }
@@ -64,8 +77,10 @@ Zod validation failures use the library's validation error contract.
 
 ```json
 {
-  "error": "Validation failed",
-  "details": []
+  "status": 400,
+  "code": "VALIDATION_ERROR",
+  "message": "Request validation failed",
+  "details": { "source": "body", "issues": [] }
 }
 ```
 
@@ -76,7 +91,8 @@ Validation errors can occur when validating:
 - Request body
 - Route parameters
 - Query parameters
-- Response data
+- Request headers and cookies
+- Response data (with `source: "response"`)
 
 See [Request Validation](./request-validation) for request validation details.
 
@@ -92,9 +108,28 @@ The resulting response follows the standard error format:
 
 ```json
 {
-  "error": "Something went wrong"
+  "status": 500,
+  "code": "INTERNAL_SERVER_ERROR",
+  "message": "Internal server error"
 }
 ```
+
+Unexpected error messages, stacks, and other internal values are never exposed.
+
+## Router customization
+
+Configure error messages, serialization, and an optional response schema for all errors from a router. The schema validates serialized error payloads; failed error-schema validation returns the safe default 500 payload instead of recursively handling an error.
+
+```ts
+const api = createApiRouter({
+  errors: {
+    responses: { 400: 'Validation failed', 500: 'Service unavailable' },
+    serialize: (error) => error,
+  },
+});
+```
+
+The legacy `new ApiError(status, message, details?)` constructor remains supported and uses the `API_ERROR` code.
 
 ## `ErrorSchema`
 
@@ -124,7 +159,7 @@ api.get('/users/:id', {
     const user = await findUser(req.params.id);
 
     if (!user) {
-      throw new ApiError(404, 'User not found');
+      throw new ApiError({ status: 404, code: 'USER_NOT_FOUND', message: 'User not found' });
     }
 
     return user;
@@ -148,7 +183,7 @@ For example:
 
 ```ts
 if (!user) {
-  throw new ApiError(404, 'User not found');
+  throw new ApiError({ status: 404, code: 'USER_NOT_FOUND', message: 'User not found' });
 }
 ```
 
@@ -157,9 +192,11 @@ if (!user) {
 Use the third argument to provide structured information.
 
 ```ts
-throw new ApiError(400, 'Invalid user', {
-  field: 'email',
-  reason: 'Email is already registered',
+throw new ApiError({
+  status: 400,
+  code: 'INVALID_USER',
+  message: 'Invalid user',
+  details: { field: 'email', reason: 'Email is already registered' },
 });
 ```
 
@@ -167,7 +204,9 @@ The response contains the supplied details:
 
 ```json
 {
-  "error": "Invalid user",
+  "status": 400,
+  "code": "INVALID_USER",
+  "message": "Invalid user",
   "details": {
     "field": "email",
     "reason": "Email is already registered"
@@ -199,7 +238,7 @@ api.get('/users/:id', {
     const user = await findUser(req.params.id);
 
     if (!user) {
-      throw new ApiError(404, 'User not found');
+      throw new ApiError({ status: 404, code: 'USER_NOT_FOUND', message: 'User not found' });
     }
 
     return user;

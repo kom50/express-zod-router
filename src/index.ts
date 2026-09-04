@@ -5,6 +5,7 @@ extendZodWithOpenApi(z);
 
 export { createApiRouter } from './router';
 export { ApiError, ErrorSchema } from './errors';
+export type { ApiErrorOptions, ApiErrorHandlingOptions, ErrorResponse, ValidationSource } from './errors';
 export { reply } from './helpers';
 
 export type {

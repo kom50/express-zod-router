@@ -7,6 +7,7 @@ import { joinPaths, normalizePrefix } from './helpers';
 import { createLifecycleHandler } from './lifecycle';
 import { mountDocs, registerNormalizedRoute } from './openapi';
 import { normalizeRoute } from './normalize-route';
+import { ErrorSchema, type ApiErrorHandlingOptions } from './errors';
 import type {
   ApiVersion,
   ApiRouteModule,
@@ -36,6 +37,7 @@ export interface CreateApiRouterOptions<S extends SecuritySchemes = SecuritySche
   onRequest?: ApiLifecycleHooks['onRequest'];
   onResponse?: ApiLifecycleHooks['onResponse'];
   onError?: ApiLifecycleHooks['onError'];
+  errors?: ApiErrorHandlingOptions;
   openapi?: {
     operationId?: {
       strategy?: 'rest' | 'handler' | 'explicit';
@@ -47,6 +49,7 @@ export function createApiRouter<Context extends RequestContext = RequestContext,
   options: CreateApiRouterOptions<S, Context> = {},
 ): ApiRouter<S, Context> {
   const registry = new OpenAPIRegistry();
+  registry.register('Error', options.errors?.schema ?? ErrorSchema);
   const registeredRoutes: RegisteredRoute[] = [];
   const operationIds = new Set<string>();
   const globalMiddleware: Middleware<Context>[] = [...(options.middleware ?? [])];
@@ -94,15 +97,14 @@ export function createApiRouter<Context extends RequestContext = RequestContext,
     operationIds.add(normalizedRoute.metadata.operationId);
     registerNormalizedRoute(registry, normalizedRoute);
 
-    const multipartMiddleware = options.multipart && normalizedRoute.request.upload
-      ? normalizedRoute.request.upload.type === 'single'
-        ? options.multipart.single(normalizedRoute.request.upload.field)
-        : normalizedRoute.request.upload.type === 'multiple'
-          ? options.multipart.array(normalizedRoute.request.upload.field, normalizedRoute.request.upload.maxFiles)
-          : options.multipart.fields(
-              Object.entries(normalizedRoute.request.upload.fields).map(([name, field]) => ({ name, maxCount: field.maxFiles })),
-            )
-      : undefined;
+    const multipartMiddleware =
+      options.multipart && normalizedRoute.request.upload
+        ? normalizedRoute.request.upload.type === 'single'
+          ? options.multipart.single(normalizedRoute.request.upload.field)
+          : normalizedRoute.request.upload.type === 'multiple'
+            ? options.multipart.array(normalizedRoute.request.upload.field, normalizedRoute.request.upload.maxFiles)
+            : options.multipart.fields(Object.entries(normalizedRoute.request.upload.fields).map(([name, field]) => ({ name, maxCount: field.maxFiles })))
+        : undefined;
 
     const expressHandler: RequestHandler = createLifecycleHandler<Context>(
       normalizedRoute,
@@ -112,6 +114,7 @@ export function createApiRouter<Context extends RequestContext = RequestContext,
         onResponse: options.onResponse,
         onError: options.onError,
       },
+      options.errors,
     );
 
     registeredRoutes.push({
