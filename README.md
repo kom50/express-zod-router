@@ -129,7 +129,7 @@ app.listen(3000, () => {
 
 ```ts
 // routes/todo.routes.ts
-import { z, ApiError, type ApiRouter } from 'express-zod-router';
+import { z, ApiError, ErrorSchema, type ApiRouter } from 'express-zod-router';
 
 const TodoSchema = z
   .object({
@@ -149,11 +149,11 @@ export function todoRoutes(api: ApiRouter) {
     params: z.object({ id: z.string() }),
     responses: {
       200: { schema: TodoSchema, description: 'Todo found' },
-      404: { description: 'Todo not found' },
+      404: { schema: ErrorSchema, description: 'Todo not found' },
     },
     handler: (req) => {
       const found = todos.find((t) => t.id === req.params.id);
-      if (!found) throw new ApiError(404, 'Todo not found');
+      if (!found) throw new ApiError({ status: 404, code: 'TODO_NOT_FOUND', message: 'Todo not found' });
       return found;
     },
   });
@@ -975,11 +975,11 @@ todo({
   body: CreateTodoSchema.partial(),
   responses: {
     200: { schema: TodoSchema, description: 'Todo updated successfully' },
-    404: { description: 'Todo not found' },
+    404: { schema: ErrorSchema, description: 'Todo not found' },
   },
   handler: (req) => {
     const found = todos.find((t) => t.id === req.params.id);
-    if (!found) throw new ApiError(404, 'Todo not found');
+    if (!found) throw new ApiError({ status: 404, code: 'TODO_NOT_FOUND', message: 'Todo not found' });
     Object.assign(found, req.body);
     return found;
   },
@@ -1013,7 +1013,7 @@ todo({
   },
   handler: (req) => {
     const found = todos.find((t) => t.id === req.params.id);
-    if (!found) throw new ApiError(404, 'Todo not found');
+    if (!found) throw new ApiError({ status: 404, code: 'TODO_NOT_FOUND', message: 'Todo not found' });
     return found; // default success path -> 200
   },
 });
@@ -1115,7 +1115,7 @@ todo({
   },
   handler: (req, res) => {
     const index = todos.findIndex((t) => t.id === req.params.id);
-    if (index === -1) throw new ApiError(404, 'Todo not found');
+    if (index === -1) throw new ApiError({ status: 404, code: 'TODO_NOT_FOUND', message: 'Todo not found' });
     todos.splice(index, 1);
     res.status(204).send();
   },
@@ -1132,18 +1132,17 @@ caught automatically — no `try/catch` needed in the handler itself.
 ```ts
 import { ApiError } from 'express-zod-router';
 
-throw new ApiError(404, 'Todo not found');
-throw new ApiError(403, 'Forbidden', { reason: 'insufficient_role' }); // optional details
+throw new ApiError({ status: 404, code: 'TODO_NOT_FOUND', message: 'Todo not found' });
+throw new ApiError({ status: 403, code: 'FORBIDDEN', message: 'Forbidden', details: { reason: 'insufficient_role' } });
 ```
 
 **How errors resolve, in order:**
 
-| Error type                               | Response                                                |
-| ---------------------------------------- | ------------------------------------------------------- |
-| Zod validation error (body/params/query) | `400 { error: "Validation failed", details: [...] }`    |
-| `ApiError`                               | `{ status }` you passed, `{ error: message, details? }` |
-| Any other `Error`                        | `500 { error: error.message }`                          |
-| Non-`Error` thrown value                 | passed to Express's default error handling via `next()` |
+| Error type             | Response                                                                               |
+| ---------------------- | -------------------------------------------------------------------------------------- |
+| Zod validation error   | `400 { status, code: "VALIDATION_ERROR", message, details: { source, issues } }`       |
+| `ApiError`             | `{ status, code, message, details? }`                                                  |
+| Any other thrown value | `500 { status: 500, code: "INTERNAL_SERVER_ERROR", message: "Internal server error" }` |
 
 ---
 

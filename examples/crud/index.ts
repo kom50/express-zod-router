@@ -1,5 +1,5 @@
 import express from 'express';
-import { ApiError, createApiRouter, z } from 'express-zod-router';
+import { ApiError, createApiRouter, ErrorSchema, z } from 'express-zod-router';
 
 const app = express();
 app.use(express.json());
@@ -36,11 +36,11 @@ usersApi.get('/:id', {
   params: z.object({ id: z.string().uuid() }),
   responses: {
     200: { schema: User, description: 'User found' },
-    404: { description: 'User not found' },
+    404: { schema: ErrorSchema, description: 'User not found' },
   },
   handler: (req) => {
     const user = users.find((item) => item.id === req.params.id);
-    if (!user) throw new ApiError(404, 'User not found');
+    if (!user) throw new ApiError({ status: 404, code: 'USER_NOT_FOUND', message: 'User not found' });
     return user;
   },
 });
@@ -65,11 +65,11 @@ usersApi.patch('/:id', {
   body: UpdateUser,
   responses: {
     200: { schema: User, description: 'User updated' },
-    404: { description: 'User not found' },
+    404: { schema: ErrorSchema, description: 'User not found' },
   },
   handler: (req) => {
     const user = users.find((item) => item.id === req.params.id);
-    if (!user) throw new ApiError(404, 'User not found');
+    if (!user) throw new ApiError({ status: 404, code: 'USER_NOT_FOUND', message: 'User not found' });
 
     Object.assign(user, req.body);
     return user;
@@ -80,11 +80,11 @@ usersApi.delete('/:id', {
   params: z.object({ id: z.string().uuid() }),
   responses: {
     204: { description: 'User deleted' },
-    404: { description: 'User not found' },
+    404: { schema: ErrorSchema, description: 'User not found' },
   },
   handler: (req) => {
     const index = users.findIndex((item) => item.id === req.params.id);
-    if (index === -1) throw new ApiError(404, 'User not found');
+    if (index === -1) throw new ApiError({ status: 404, code: 'USER_NOT_FOUND', message: 'User not found' });
 
     users.splice(index, 1);
     return { status: 204 as const };
