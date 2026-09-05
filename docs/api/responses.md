@@ -8,9 +8,51 @@
 api.get('/users', {
   response: z.array(UserSchema),
 
-  handler: async () => {
-    return users;
+  handler: async ({ response }) => {
+    return response.ok(users);
   },
+});
+```
+
+## Response helpers
+
+Every handler receives a route-scoped `response` helper. It selects an explicit HTTP status without interacting with Express directly and preserves the response contract in TypeScript.
+
+```ts
+handler: async ({ params, response }) => {
+  const user = await findUser(params.id);
+
+  if (!user) {
+    return response.notFound({
+      code: 'USER_NOT_FOUND',
+      message: 'User not found',
+    });
+  }
+
+  return response.ok(user);
+}
+```
+
+For routes with `responses`, the helper exposes only declared statuses and requires the schema associated with that status. For example, a route declaring `200` and `404` allows `response.ok(user)` and `response.notFound(error)`, but rejects `response.created(user)`.
+
+Available named helpers are:
+
+- `response.ok(data)` (200)
+- `response.created(data, { headers? })` (201)
+- `response.accepted(data)` (202)
+- `response.noContent()` (204)
+- `response.badRequest(data)` (400)
+- `response.unauthorized(data)` (401)
+- `response.forbidden(data)` (403)
+- `response.notFound(data)` (404)
+- `response.conflict(data)` (409)
+- `response.unprocessableEntity(data)` (422)
+
+Use `response.status(status, data)` for another declared status, or `response.json({ status, data, headers })` when setting headers in the response object. Headers are passed through to Express:
+
+```ts
+return response.created(user, {
+  headers: { Location: `/users/${user.id}` },
 });
 ```
 
@@ -69,8 +111,8 @@ api.post('/users', {
   response: UserSchema,
   status: 201,
 
-  handler: async (req) => {
-    return createUser(req.body);
+  handler: async ({ body }) => {
+    return createUser(body);
   },
 });
 ```
@@ -137,14 +179,14 @@ api.get('/users/:id', {
     },
   },
 
-  handler: async (req) => {
-    const user = await findUser(req.params.id);
+  handler: async ({ params, response }) => {
+    const user = await findUser(params.id);
 
     if (!user) {
-      return reply(404);
+      return response.notFound();
     }
 
-    return reply(200, user);
+    return response.ok(user);
   },
 });
 ```
@@ -169,21 +211,21 @@ api.delete('/users/:id', {
     },
   },
 
-  handler: async (req) => {
-    const deleted = await deleteUser(req.params.id);
+  handler: async ({ params, response }) => {
+    const deleted = await deleteUser(params.id);
 
     if (!deleted) {
-      return reply(404);
+      return response.notFound();
     }
 
-    return reply(204);
+    return response.noContent();
   },
 });
 ```
 
-## `reply()`
+## `reply()` and Express responses
 
-Use `reply()` when the handler needs to explicitly select a declared HTTP status.
+`response` is the recommended way to explicitly select a declared status. Existing `reply()` and direct `res.status(...).json(...)` returns remain supported for backward compatibility.
 
 ```ts
 return reply(200, user);
@@ -318,9 +360,10 @@ See the complete working examples:
 
 - Use `response` for a single response contract.
 - Use `responses` when multiple HTTP statuses are possible.
+- Use the injected `response` helper to select a typed declared status.
 - Use `status` to define the default response status.
 - Use `responseDescription` for the default OpenAPI description.
 - Use `responseExample` for OpenAPI response examples.
-- Use `reply()` when the handler needs an explicit response status.
+- `reply()` and direct Express responses remain supported for existing handlers.
 - Response schemas provide runtime validation and OpenAPI documentation.
 - Use normal Zod composition for arrays and nested response structures.

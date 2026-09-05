@@ -29,7 +29,7 @@ const users: User[] = [
 usersApi.get('/', {
   summary: 'List users',
   response: z.array(User),
-  handler: () => users,
+  handler: ({ response }) => response.ok(users),
 });
 
 usersApi.get('/:id', {
@@ -38,10 +38,10 @@ usersApi.get('/:id', {
     200: { schema: User, description: 'User found' },
     404: { schema: ErrorSchema, description: 'User not found' },
   },
-  handler: (req) => {
-    const user = users.find((item) => item.id === req.params.id);
-    if (!user) throw new ApiError({ status: 404, code: 'USER_NOT_FOUND', message: 'User not found' });
-    return user;
+  handler: ({ params, response }) => {
+    const user = users.find((item) => item.id === params.id);
+    if (!user) return response.notFound({ status: 404, code: 'USER_NOT_FOUND', message: 'User not found' });
+    return response.ok(user);
   },
 });
 
@@ -67,12 +67,12 @@ usersApi.patch('/:id', {
     200: { schema: User, description: 'User updated' },
     404: { schema: ErrorSchema, description: 'User not found' },
   },
-  handler: (req) => {
-    const user = users.find((item) => item.id === req.params.id);
-    if (!user) throw new ApiError({ status: 404, code: 'USER_NOT_FOUND', message: 'User not found' });
+  handler: ({ params, body, response }) => {
+    const user = users.find((item) => item.id === params.id);
+    if (!user) return response.notFound({ status: 404, code: 'USER_NOT_FOUND', message: 'User not found' });
 
-    Object.assign(user, req.body);
-    return user;
+    Object.assign(user, body);
+    return response.ok(user);
   },
 });
 
@@ -82,12 +82,12 @@ usersApi.delete('/:id', {
     204: { description: 'User deleted' },
     404: { schema: ErrorSchema, description: 'User not found' },
   },
-  handler: (req) => {
-    const index = users.findIndex((item) => item.id === req.params.id);
-    if (index === -1) throw new ApiError({ status: 404, code: 'USER_NOT_FOUND', message: 'User not found' });
+  handler: ({ params, response }) => {
+    const index = users.findIndex((item) => item.id === params.id);
+    if (index === -1) return response.notFound({ status: 404, code: 'USER_NOT_FOUND', message: 'User not found' });
 
     users.splice(index, 1);
-    return { status: 204 as const };
+    return response.noContent();
   },
 });
 

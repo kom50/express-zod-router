@@ -23,6 +23,26 @@ api.route({
   },
 });
 
+api.get('/response-helpers/:id', {
+  params: z.object({ id: z.string() }),
+  responses: {
+    200: { schema: z.object({ id: z.string() }) },
+    404: { schema: z.object({ code: z.string(), message: z.string() }) },
+  },
+  handler: ({ params, response }) => {
+    if (params.id === 'missing') {
+      return response.notFound({ code: 'TODO_NOT_FOUND', message: 'Todo not found' });
+    }
+    // @ts-expect-error status 201 is not declared by this route
+    response.created({ id: params.id });
+    // @ts-expect-error 404 must use its declared error schema
+    response.notFound({ id: params.id });
+    // @ts-expect-error status 418 is not declared by this route
+    response.status(418, { id: params.id });
+    return response.ok({ id: params.id });
+  },
+});
+
 api.route({
   method: 'get',
   path: '/todos-reply/:id',
