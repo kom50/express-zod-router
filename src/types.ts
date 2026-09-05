@@ -145,8 +145,6 @@ export type TypedRequest<
   C extends ZodType | undefined = undefined,
   Context extends RequestContext = RequestContext,
   Upload extends UploadConfig | undefined = undefined,
-  R extends ZodType | undefined = undefined,
-  Rs extends Record<number, ResponseConfig> | undefined = undefined,
 > = Omit<ContextRequest<Context>, 'body' | 'params' | 'query' | 'headers' | 'cookies' | 'file' | 'files'> & {
   body: B extends ZodType ? z.infer<B> : B extends { schema: infer S extends ZodType } ? z.infer<S> : Request['body'];
   params: P extends ZodType ? z.infer<P> : Request['params'];
@@ -157,7 +155,6 @@ export type TypedRequest<
    * `req.signedCookies` and are intentionally not merged into this contract.
    */
   cookies: C extends ZodType ? z.infer<C> : Record<string, unknown>;
-  response: ResponseHelpers<R, Rs>;
 } & (Upload extends { type: 'single' }
     ? Upload extends { required: false }
       ? { file?: UploadedFile; files?: never }
@@ -174,6 +171,18 @@ export type TypedRequest<
             };
           }
         : { file?: UploadedFile; files?: UploadedFile[] | Record<string, UploadedFile[]> });
+
+type HandlerRequest<
+  B extends ZodType | undefined,
+  P extends ZodType | undefined,
+  Q extends ZodType | undefined,
+  H extends ZodType | undefined,
+  C extends ZodType | undefined,
+  Context extends RequestContext,
+  Upload extends UploadConfig | undefined,
+  R extends ZodType | undefined,
+  Rs extends Record<number, ResponseConfig> | undefined,
+> = TypedRequest<B, P, Q, H, C, Context, Upload> & { response: ResponseHelpers<R, Rs> };
 
 export interface RouteSchemaConfig<TSchema extends ZodType = ZodType> {
   schema: TSchema;
@@ -293,7 +302,7 @@ export interface RouteConfig<
   responseDescription?: string;
 
   handler: (
-    req: TypedRequest<B, P, Q, H, C, Context, Upload, R, Rs>,
+    req: HandlerRequest<B, P, Q, H, C, Context, Upload, R, Rs>,
     res: Response,
   ) => Rs extends Record<number, ResponseConfig>
     ? InferResponses<Rs> | InferSuccessResponseBody<Rs> | Promise<InferResponses<Rs> | InferSuccessResponseBody<Rs>> | Response | Promise<Response>
