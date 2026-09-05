@@ -1,6 +1,6 @@
 {
   "name": "express-zod-router",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "FastAPI-style routing layer for Express using Zod schemas for validation, types, and OpenAPI generation.",
   "license": "MIT",
   "repository": {
