@@ -1,5 +1,6 @@
 import type { NextFunction, Request, RequestHandler, Response } from 'express';
 import { ApiError, handleRouteError, toRequestValidationError, type ApiErrorHandlingOptions, type ValidationSource } from './errors';
+import { createResponseHelpers } from './response';
 import type { NormalizedRoute } from './route-contract';
 import type { UploadedFile, UploadConstraints, UploadConfig, UploadSize } from './types';
 
@@ -97,6 +98,12 @@ export function createRuntimeHandler(route: NormalizedRoute, onError?: RouteErro
       }
 
       let handlerReq = req;
+      Object.defineProperty(handlerReq, 'response', {
+        value: createResponseHelpers(),
+        writable: false,
+        enumerable: true,
+        configurable: true,
+      });
       if (Object.keys(parsedRequest).length > 0) {
         handlerReq = Object.create(req);
         for (const [key, value] of Object.entries(parsedRequest)) {
@@ -107,6 +114,12 @@ export function createRuntimeHandler(route: NormalizedRoute, onError?: RouteErro
             configurable: true,
           });
         }
+        Object.defineProperty(handlerReq, 'response', {
+          value: createResponseHelpers(),
+          writable: false,
+          enumerable: true,
+          configurable: true,
+        });
       }
 
       const result = await route.handler(handlerReq, res);
@@ -120,9 +133,10 @@ export function createRuntimeHandler(route: NormalizedRoute, onError?: RouteErro
         }
 
         if (typeof result === 'object' && result !== null && 'status' in result) {
-          const reply = result as { status: number; body?: unknown };
+          const reply = result as { status: number; body?: unknown; headers?: Record<string, string> };
           responseStatus = reply.status;
           rawBody = reply.body;
+          if (reply.headers) res.set(reply.headers);
         } else {
           const successful = route.response.definitions
             .map((definition) => definition.status)
@@ -134,6 +148,11 @@ export function createRuntimeHandler(route: NormalizedRoute, onError?: RouteErro
           responseStatus = successful[0];
           rawBody = result;
         }
+      } else if (typeof result === 'object' && result !== null && 'status' in result) {
+        const reply = result as { status: number; body?: unknown; headers?: Record<string, string> };
+        responseStatus = reply.status;
+        rawBody = reply.body;
+        if (reply.headers) res.set(reply.headers);
       } else {
         responseStatus = route.response.defaultStatus;
         rawBody = result;

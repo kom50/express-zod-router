@@ -1,5 +1,7 @@
 import type { Request, Response, RequestHandler, NextFunction } from 'express';
 import type { ZodType, z } from 'zod';
+import type { ResponseHelpers } from './response';
+import type { ApiResponse } from './response';
 
 export type Method = 'get' | 'post' | 'put' | 'patch' | 'delete';
 
@@ -12,11 +14,7 @@ export type ContextRequest<C extends RequestContext = RequestContext> = Request 
   context: C;
 };
 
-export type Middleware<C extends RequestContext = RequestContext> = (
-  req: ContextRequest<C>,
-  res: Response,
-  next: NextFunction,
-) => unknown;
+export type Middleware<C extends RequestContext = RequestContext> = (req: ContextRequest<C>, res: Response, next: NextFunction) => unknown;
 
 export interface ApiRequestHookContext {
   req: Request;
@@ -147,6 +145,8 @@ export type TypedRequest<
   C extends ZodType | undefined = undefined,
   Context extends RequestContext = RequestContext,
   Upload extends UploadConfig | undefined = undefined,
+  R extends ZodType | undefined = undefined,
+  Rs extends Record<number, ResponseConfig> | undefined = undefined,
 > = Omit<ContextRequest<Context>, 'body' | 'params' | 'query' | 'headers' | 'cookies' | 'file' | 'files'> & {
   body: B extends ZodType ? z.infer<B> : B extends { schema: infer S extends ZodType } ? z.infer<S> : Request['body'];
   params: P extends ZodType ? z.infer<P> : Request['params'];
@@ -157,22 +157,23 @@ export type TypedRequest<
    * `req.signedCookies` and are intentionally not merged into this contract.
    */
   cookies: C extends ZodType ? z.infer<C> : Record<string, unknown>;
+  response: ResponseHelpers<R, Rs>;
 } & (Upload extends { type: 'single' }
-  ? Upload extends { required: false }
-    ? { file?: UploadedFile; files?: never }
-    : { file: UploadedFile; files?: never }
-  : Upload extends { type: 'multiple' }
     ? Upload extends { required: false }
-      ? { file?: never; files?: UploadedFile[] }
-      : { file?: never; files: UploadedFile[] }
-    : Upload extends { type: 'fields'; fields: infer Fields extends Record<string, UploadFieldConfig> }
-      ? {
-          file?: never;
-          files: {
-            [Name in keyof Fields]: Fields[Name] extends { required: false } ? UploadedFile[] | undefined : UploadedFile[];
-          };
-        }
-      : { file?: UploadedFile; files?: UploadedFile[] | Record<string, UploadedFile[]> });
+      ? { file?: UploadedFile; files?: never }
+      : { file: UploadedFile; files?: never }
+    : Upload extends { type: 'multiple' }
+      ? Upload extends { required: false }
+        ? { file?: never; files?: UploadedFile[] }
+        : { file?: never; files: UploadedFile[] }
+      : Upload extends { type: 'fields'; fields: infer Fields extends Record<string, UploadFieldConfig> }
+        ? {
+            file?: never;
+            files: {
+              [Name in keyof Fields]: Fields[Name] extends { required: false } ? UploadedFile[] | undefined : UploadedFile[];
+            };
+          }
+        : { file?: UploadedFile; files?: UploadedFile[] | Record<string, UploadedFile[]> });
 
 export interface RouteSchemaConfig<TSchema extends ZodType = ZodType> {
   schema: TSchema;
@@ -292,12 +293,12 @@ export interface RouteConfig<
   responseDescription?: string;
 
   handler: (
-    req: TypedRequest<B, P, Q, H, C, Context, Upload>,
+    req: TypedRequest<B, P, Q, H, C, Context, Upload, R, Rs>,
     res: Response,
   ) => Rs extends Record<number, ResponseConfig>
     ? InferResponses<Rs> | InferSuccessResponseBody<Rs> | Promise<InferResponses<Rs> | InferSuccessResponseBody<Rs>> | Response | Promise<Response>
     : InferSchema<R> extends ZodType
-      ? z.infer<InferSchema<R>> | Promise<z.infer<InferSchema<R>>> | Response | Promise<Response>
+      ? z.infer<InferSchema<R>> | ApiResponse<number, z.infer<InferSchema<R>>> | Promise<z.infer<InferSchema<R>> | ApiResponse<number, z.infer<InferSchema<R>>>> | Response | Promise<Response>
       : unknown;
 }
 
@@ -319,7 +320,10 @@ export interface CreateRouterOptions {
   };
 }
 
-export type CreateRouterOptionsFor<S extends AnySecuritySchemes = AnySecuritySchemes, Context extends RequestContext = RequestContext> = Omit<CreateRouterOptions, 'security' | 'middleware'> & {
+export type CreateRouterOptionsFor<S extends AnySecuritySchemes = AnySecuritySchemes, Context extends RequestContext = RequestContext> = Omit<
+  CreateRouterOptions,
+  'security' | 'middleware'
+> & {
   middleware?: Middleware<Context>[];
   security?: RouteSecurity<S>;
 };
@@ -465,4 +469,6 @@ export interface ApiRouter<S extends AnySecuritySchemes = AnySecuritySchemes, Co
   registry: import('@asteasolutions/zod-to-openapi').OpenAPIRegistry;
 }
 
-export type ApiRouteModule<S extends AnySecuritySchemes = AnySecuritySchemes, Context extends RequestContext = RequestContext> = (api: ApiRouter<S, Context>) => void;
+export type ApiRouteModule<S extends AnySecuritySchemes = AnySecuritySchemes, Context extends RequestContext = RequestContext> = (
+  api: ApiRouter<S, Context>,
+) => void;

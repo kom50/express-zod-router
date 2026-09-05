@@ -110,4 +110,80 @@ describe('responses: return behavior', () => {
     expect(foundRes.body).toEqual({ id: '1', title: 'Learn Zod router' });
     expect(notFoundRes.status).toBe(404);
   });
+
+  it('injects status-aware response helpers into handlers', async () => {
+    const app = express();
+    const api = createApiRouter();
+
+    api.get('/users/:id', {
+      params: z.object({ id: z.string() }),
+      responses: {
+        200: { schema: z.object({ id: z.string() }) },
+        201: { schema: z.object({ id: z.string() }) },
+        202: { schema: z.object({ accepted: z.boolean() }) },
+        204: { description: 'No content' },
+        404: { schema: z.object({ code: z.string(), message: z.string() }) },
+      },
+      handler: ({ params, response }) => {
+        if (params.id === 'missing') return response.notFound({ code: 'USER_NOT_FOUND', message: 'User not found' });
+        if (params.id === 'new') return response.created({ id: 'new' }, { headers: { Location: '/users/new' } });
+        if (params.id === 'queued') return response.accepted({ accepted: true });
+        if (params.id === 'empty') return response.noContent();
+        return response.ok({ id: params.id });
+      },
+    });
+
+    api.mount(app);
+
+    expect((await request(app).get('/users/1')).body).toEqual({ id: '1' });
+    const created = await request(app).get('/users/new');
+    expect(created.status).toBe(201);
+    expect(created.headers.location).toBe('/users/new');
+    expect((await request(app).get('/users/queued')).status).toBe(202);
+    const empty = await request(app).get('/users/empty');
+    expect(empty.status).toBe(204);
+    expect(empty.text).toBe('');
+    expect((await request(app).get('/users/missing')).body).toEqual({ code: 'USER_NOT_FOUND', message: 'User not found' });
+  });
+
+  it('supports standard error helpers and explicit status responses', async () => {
+    const app = express();
+    const api = createApiRouter();
+    const ErrorResponse = z.object({ code: z.string(), message: z.string() });
+
+    api.get('/responses/:kind', {
+      params: z.object({ kind: z.string() }),
+      responses: {
+        400: { schema: ErrorResponse },
+        401: { schema: ErrorResponse },
+        403: { schema: ErrorResponse },
+        409: { schema: ErrorResponse },
+        418: { schema: ErrorResponse },
+        422: { schema: ErrorResponse },
+      },
+      handler: ({ params, response }) => {
+        const data = { code: params.kind.toUpperCase(), message: 'Response helper' };
+        if (params.kind === 'bad-request') return response.badRequest(data);
+        if (params.kind === 'unauthorized') return response.unauthorized(data);
+        if (params.kind === 'forbidden') return response.forbidden(data);
+        if (params.kind === 'conflict') return response.conflict(data);
+        if (params.kind === 'unprocessable') return response.unprocessableEntity(data);
+        return response.json({ status: 418, data, headers: { 'X-Response-Helper': 'true' } });
+      },
+    });
+    api.mount(app);
+
+    for (const [kind, status] of Object.entries({
+      'bad-request': 400,
+      unauthorized: 401,
+      forbidden: 403,
+      conflict: 409,
+      unprocessable: 422,
+      custom: 418,
+    })) {
+      const response = await request(app).get(`/responses/${kind}`);
+      expect(response.status).toBe(status);
+    }
+    expect((await request(app).get('/responses/custom')).headers['x-response-helper']).toBe('true');
+  });
 });

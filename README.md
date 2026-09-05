@@ -964,6 +964,22 @@ Both inputs are emitted as OpenAPI parameters (`in: header` and `in: cookie`).
 
 ## Multiple responses per route (`responses`)
 
+Use the route-scoped `response` helper to return a declared status without writing to Express directly. Each helper is typed from the route's `responses` map, so a status can only use the schema declared for it.
+
+```ts
+handler: ({ params, response }) => {
+  const found = todos.find((todo) => todo.id === params.id);
+  if (!found) {
+    return response.notFound({ code: 'TODO_NOT_FOUND', message: 'Todo not found' });
+  }
+  return response.ok(found);
+};
+```
+
+Available helpers are `ok`, `created`, `accepted`, `noContent`, `badRequest`, `unauthorized`, `forbidden`, `notFound`, `conflict`, and `unprocessableEntity`. Use `response.status(status, data)` or `response.json({ status, data, headers })` for another declared status. Helper responses can set headers, for example `response.created(todo, { headers: { Location: '/todos/1' } })`.
+
+For a simple `response: Schema` route, use `response.ok(data)`. For `204`, declare it in `responses` and return `response.noContent()`.
+
 For endpoints that can return different shapes depending on outcome — the FastAPI
 `responses={200: ..., 404: ...}` pattern — use `responses` instead of `response`:
 

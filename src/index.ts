@@ -7,6 +7,8 @@ export { createApiRouter } from './router';
 export { ApiError, ErrorSchema } from './errors';
 export type { ApiErrorOptions, ApiErrorHandlingOptions, ErrorResponse, ValidationSource } from './errors';
 export { reply } from './helpers';
+export { HttpStatus } from './response';
+export type { ApiResponse, ApiResponseOptions, ResponseHelpers } from './response';
 
 export type {
   ApiRouter,
