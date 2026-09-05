@@ -41,3 +41,20 @@ Changes that are merged but not yet released should be documented here before th
 - Type-safe request context support for global and route middleware.
 - Lifecycle hooks for observing requests, responses, and errors with request duration information.
 - Zod validation and typed request access for headers and cookies, including OpenAPI parameter generation.
+
+## [1.2.0] - 2026-09-05
+
+### Added
+
+- Standardized API error handling with structured `ApiError` status/code/message/details responses.
+- Configurable error messages, serializers, and response schema validation.
+- Source-aware validation errors and safe default internal-server-error responses.
+- Reusable `ApiError` OpenAPI error schema.
+- Typed route-scoped response helpers for declared statuses, headers, JSON responses, and no-content responses.
+- `HttpStatus`, `ApiResponse`, `ApiResponseOptions`, and `ResponseHelpers` public types.
+- Documentation and examples for standardized errors and typed response helpers.
+
+### Fixed
+
+- Avoided generated OpenAPI client type-name collisions by using the `ApiError` component name.
+- Preserved response-schema inference for externally typed handlers.
