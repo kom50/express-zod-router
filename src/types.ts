@@ -305,7 +305,7 @@ export interface RouteConfig<
     req: HandlerRequest<B, P, Q, H, C, Context, Upload, R, Rs>,
     res: Response,
   ) => Rs extends Record<number, ResponseConfig>
-    ? InferResponses<Rs> | InferSuccessResponseBody<Rs> | Promise<InferResponses<Rs> | InferSuccessResponseBody<Rs>> | Response | Promise<Response>
+    ? NoInfer<InferResponses<Rs> | InferSuccessResponseBody<Rs>> | Promise<NoInfer<InferResponses<Rs> | InferSuccessResponseBody<Rs>>> | Response | Promise<Response>
     : InferSchema<R> extends ZodType
       ? z.infer<InferSchema<R>> | ApiResponse<number, z.infer<InferSchema<R>>> | Promise<z.infer<InferSchema<R>> | ApiResponse<number, z.infer<InferSchema<R>>>> | Response | Promise<Response>
       : unknown;

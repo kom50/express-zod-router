@@ -80,7 +80,7 @@ export type ResponseHelpers<Schema extends ZodType | undefined, Responses extend
       };
 
 function response(status: number, data?: unknown, headers?: Record<string, string>): { status: number; body?: unknown; headers?: Record<string, string> } {
-  return { status, ...(data !== undefined && { body: data }), ...(headers && { headers }) };
+  return { status, body: data, ...(headers && { headers }) };
 }
 
 export function createResponseHelpers(): ResponseHelpers<any, any> {

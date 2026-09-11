@@ -262,6 +262,7 @@ export function registerNormalizedRoute(registry: OpenAPIRegistry, route: Normal
     } as NonNullable<Parameters<typeof registry.registerPath>[0]['request']>,
     ...operation,
     responses: {
+      400: defaultValidationErrorResponse,
       ...Object.fromEntries(
         route.response.definitions.map((definition) => [
           definition.status,
@@ -278,7 +279,6 @@ export function registerNormalizedRoute(registry: OpenAPIRegistry, route: Normal
           },
         ]),
       ),
-      400: defaultValidationErrorResponse,
     },
   });
 }

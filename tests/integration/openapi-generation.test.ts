@@ -4,6 +4,34 @@ import { describe, it, expect } from 'vitest';
 import { ErrorSchema, z, createApiRouter } from '../../src';
 
 describe('docs: openapi generation', () => {
+  it('preserves explicit 400 responses and supplies the default when omitted', async () => {
+    const app = express();
+    const api = createApiRouter();
+    api.get('/custom', {
+      responses: { 400: { schema: z.object({ reason: z.string() }), description: 'Business rejection', example: { reason: 'Rejected' } } },
+      handler: ({ response }) => response.badRequest({ reason: 'Rejected' }),
+    });
+    api.get('/default', { response: z.string(), handler: () => 'ok' });
+    api.docs();
+    api.mount(app);
+
+    const result = await request(app).get('/api-docs.json');
+    expect(result.status).toBe(200);
+    expect(result.body.paths['/custom'].get.responses['400']).toEqual({
+      description: 'Business rejection',
+      content: {
+        'application/json': {
+          schema: { type: 'object', properties: { reason: { type: 'string' } }, required: ['reason'] },
+          example: { reason: 'Rejected' },
+        },
+      },
+    });
+    expect(result.body.paths['/default'].get.responses['400'].content['application/json'].schema).toEqual({ $ref: '#/components/schemas/ApiError' });
+    const response = await request(app).get('/custom');
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ reason: 'Rejected' });
+  });
+
   it('exposes a generated OpenAPI document for mounted routes', async () => {
     const app = express();
     const api = createApiRouter({ prefix: '/api' });

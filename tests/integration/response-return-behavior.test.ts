@@ -4,6 +4,61 @@ import { describe, expect, it } from 'vitest';
 import { ApiError, createApiRouter, reply, z } from '../../src';
 
 describe('responses: return behavior', () => {
+  it.each(['active', 200])('preserves a plain status field (%s) with single and multiple responses', async (status) => {
+    const app = express();
+    const api = createApiRouter();
+    const schema = z.object({ status: z.union([z.string(), z.number()]) });
+    api.get('/single', { response: schema, handler: () => ({ status }) });
+    api.get('/multiple', { responses: { 200: { schema } }, handler: () => ({ status }) });
+    api.mount(app);
+
+    for (const path of ['/single', '/multiple']) {
+      const result = await request(app).get(path);
+      expect(result.status).toBe(200);
+      expect(result.body).toEqual({ status });
+    }
+  });
+
+  it('rejects undeclared helper statuses instead of bypassing response validation', async () => {
+    const app = express();
+    const api = createApiRouter();
+    api.post('/users', {
+      status: 201,
+      response: z.object({ name: z.string() }),
+      handler: ({ response }) => {
+        const user = { name: 'Ada', secret: 'private' };
+        return response.ok(user);
+      },
+    });
+    api.mount(app);
+
+    const result = await request(app).post('/users');
+    expect(result.status).toBe(500);
+    expect(result.body).toEqual({ status: 500, code: 'INTERNAL_SERVER_ERROR', message: 'Internal server error' });
+  });
+
+  it('validates explicit declared statuses and preserves bodyless responses', async () => {
+    const app = express();
+    const api = createApiRouter();
+    api.post('/users', {
+      status: 201,
+      response: z.object({ name: z.string() }),
+      handler: () => reply(201, { name: 'Ada', secret: 'private' }),
+    });
+    api.get('/empty', { responses: { 204: {} }, handler: () => ({ status: 204 as const }) });
+    api.get('/helper-empty', { responses: { 204: {} }, handler: ({ response }) => response.noContent() });
+    api.mount(app);
+
+    const created = await request(app).post('/users');
+    expect(created.status).toBe(201);
+    expect(created.body).toEqual({ name: 'Ada' });
+    for (const path of ['/empty', '/helper-empty']) {
+      const result = await request(app).get(path);
+      expect(result.status).toBe(204);
+      expect(result.text).toBe('');
+    }
+  });
+
   it('maps plain success return to default 200 response', async () => {
     const app = express();
     const api = createApiRouter();
