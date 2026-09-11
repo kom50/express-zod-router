@@ -1,6 +1,7 @@
 import { z, createApiRouter } from '../../src';
 
 const api = createApiRouter({
+  security: [{ bearerAuth: [] }],
   version: {
     defaultVersion: 'v1',
     supportedVersions: ['v1', 'v2'],
@@ -67,3 +68,21 @@ api.createRouter({
 api.version('v1', {
   security: ['bearerAuth'],
 });
+
+api.get('/object-security', { security: [{ bearerAuth: [], apiKeyAuth: [] }, {}], response: z.string(), handler: () => 'ok' });
+api.get('/bad-object-security', {
+  // @ts-expect-error unknown object-form security scheme
+  security: [{ missingScheme: [] }],
+  response: z.string(), handler: () => 'ok',
+});
+createApiRouter({
+  securitySchemes: { bearer: { type: 'http', scheme: 'bearer' } },
+  // @ts-expect-error defaults must not widen inferred scheme names
+  security: ['missingScheme'],
+});
+createApiRouter({
+  securitySchemes: { bearer: { type: 'http', scheme: 'bearer' } },
+  // @ts-expect-error unknown global object-form scheme
+  security: [{ missingScheme: [] }],
+});
+api.get('/public', { security: [], response: z.string(), handler: () => 'ok' });
