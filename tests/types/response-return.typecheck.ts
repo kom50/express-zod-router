@@ -3,6 +3,18 @@ import { ApiError, createApiRouter, reply, z } from '../../src';
 const api = createApiRouter();
 const todos = [{ id: '1', title: 'Learn Zod router' }];
 
+const statusSchema = z.object({ status: z.union([z.string(), z.number()]) });
+for (const status of ['active', 200]) {
+  api.get('/single-status', { response: statusSchema, handler: () => ({ status }) });
+  api.get('/multiple-status', { responses: { 200: { schema: statusSchema } }, handler: () => ({ status }) });
+}
+
+api.get('/invalid-status-body', {
+  responses: { 200: { schema: statusSchema } },
+  // @ts-expect-error the handler must still match the declared response schema
+  handler: () => ({ status: true }),
+});
+
 api.route({
   method: 'get',
   path: '/todos/:id',

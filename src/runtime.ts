@@ -6,6 +6,15 @@ import type { UploadedFile, UploadConstraints, UploadConfig, UploadSize } from '
 
 export type RouteErrorObserver = (error: unknown) => void | Promise<void>;
 
+function isResponseEnvelope(value: unknown, route: NormalizedRoute): value is { status: number; body?: unknown; headers?: Record<string, string> } {
+  if (!value || typeof value !== 'object' || !('status' in value) || typeof value.status !== 'number') return false;
+  if (Object.prototype.hasOwnProperty.call(value, 'body')) return true;
+  // Preserve status-only returns for declared responses without a body schema.
+  return route.response.multiple &&
+    route.response.definitions.some((definition) => definition.status === value.status && !definition.schema) &&
+    Object.keys(value).every((key) => key === 'status' || key === 'headers');
+}
+
 function caseInsensitiveHeaders(headers: Request['headers']): Request['headers'] {
   return new Proxy(headers, {
     get(target, property, receiver) {
@@ -132,7 +141,7 @@ export function createRuntimeHandler(route: NormalizedRoute, onError?: RouteErro
           throw new Error('Handler with `responses` must return `reply(status, body)` (or send a response via `res`).');
         }
 
-        if (typeof result === 'object' && result !== null && 'status' in result) {
+        if (isResponseEnvelope(result, route)) {
           const reply = result as { status: number; body?: unknown; headers?: Record<string, string> };
           responseStatus = reply.status;
           rawBody = reply.body;
@@ -148,7 +157,7 @@ export function createRuntimeHandler(route: NormalizedRoute, onError?: RouteErro
           responseStatus = successful[0];
           rawBody = result;
         }
-      } else if (typeof result === 'object' && result !== null && 'status' in result) {
+      } else if (isResponseEnvelope(result, route)) {
         const reply = result as { status: number; body?: unknown; headers?: Record<string, string> };
         responseStatus = reply.status;
         rawBody = reply.body;
@@ -159,8 +168,11 @@ export function createRuntimeHandler(route: NormalizedRoute, onError?: RouteErro
       }
 
       const definition = route.response.definitions.find((entry) => entry.status === responseStatus);
+      if (!definition) {
+        throw new Error(`Handler returned undeclared response status: ${responseStatus}`);
+      }
       validationSource = 'response';
-      const payload = definition?.schema ? definition.schema.parse(rawBody) : rawBody;
+      const payload = definition.schema ? definition.schema.parse(rawBody) : rawBody;
       if (responseStatus === 204) {
         res.status(204).send();
         return;
