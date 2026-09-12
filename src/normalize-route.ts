@@ -23,6 +23,7 @@ export interface NormalizeRouteOptions<S extends SecuritySchemes = SecuritySchem
   prefix?: string;
   version?: VersionConfig;
   operationIdStrategy?: OperationIdStrategy;
+  security?: RouteSecurity<S>;
 }
 
 function normalizeVersion(version: ApiVersion): string {
@@ -45,7 +46,9 @@ function resolveVersion(version: ApiVersion | false | undefined, config?: Versio
 
 function normalizeSecurity<S extends SecuritySchemes>(security?: RouteSecurity<S>): OpenApiSecurityRequirement[] | undefined {
   if (!security) return undefined;
-  return security.map((entry) => (typeof entry === 'string' ? ({ [entry]: [] } as OpenApiSecurityRequirement) : entry));
+  return security.map((entry) => typeof entry === 'string'
+    ? { [entry]: [] }
+    : Object.fromEntries(Object.entries(entry).filter((pair): pair is [string, string[]] => pair[1] !== undefined)));
 }
 
 function unwrapSchema(value?: ZodType | RouteSchemaConfig<ZodType>, fallbackExample?: unknown) {
@@ -117,7 +120,7 @@ export function normalizeRoute<S extends SecuritySchemes = SecuritySchemes>(opti
     config.responseDescription ?? 'Success',
   );
   const tags = resolvedVersion && versionConfig?.autoTag !== false && (!config.tags || config.tags.length === 0) ? [resolvedVersion] : config.tags;
-  const security = normalizeSecurity(config.security);
+  const security = normalizeSecurity(config.security ?? options.security);
 
   return {
     method,

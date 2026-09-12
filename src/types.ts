@@ -125,7 +125,9 @@ type AnySecuritySchemes = Record<string, OpenApiSecuritySchemeObject>;
 
 export type OpenApiSecurityRequirement = Record<string, string[]>;
 
-export type SecurityReference<S extends AnySecuritySchemes = AnySecuritySchemes> = Extract<keyof S, string> | OpenApiSecurityRequirement;
+export type SecurityReference<S extends AnySecuritySchemes = AnySecuritySchemes> =
+  | Extract<keyof S, string>
+  | Partial<Record<Extract<keyof S, string>, string[]>>;
 
 export type RouteSecurity<S extends AnySecuritySchemes = AnySecuritySchemes> = SecurityReference<S>[];
 

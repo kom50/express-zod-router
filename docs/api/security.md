@@ -94,7 +94,40 @@ The responsibilities are therefore:
 | `securitySchemes` | Defines available OpenAPI authentication schemes |
 | `middleware`      | Performs runtime authentication/authorization    |
 
-## Route-level security
+## Global defaults and overrides
+
+Set `security` on `createApiRouter()` to document a default requirement for registered routes:
+
+```ts
+const api = createApiRouter({
+  securitySchemes: {
+    bearerAuth: { type: 'http', scheme: 'bearer' },
+    apiKey: { type: 'apiKey', in: 'header', name: 'X-API-Key' },
+    session: { type: 'apiKey', in: 'cookie', name: 'session' },
+  },
+  security: ['bearerAuth'],
+});
+
+api.get('/profile', { response: UserSchema, handler: getProfile });
+api.get('/health', { security: [], response: z.string(), handler: () => 'ok' });
+
+const internal = api.createRouter({ path: '/internal', security: ['apiKey'] });
+internal.get('/users', { response: UsersSchema, handler: listUsers });
+```
+
+Precedence is route configuration, then scoped-router configuration, then the global default. Arrays replace inherited requirements rather than merging them. An explicit empty array makes a route or scoped router public in the generated contract. Defaults are materialized on each OpenAPI operation, including versioned routes; they do not apply to unrelated Express routes or the documentation endpoints.
+
+These settings only document security. `security: []` does not disable authentication middleware inherited from the application or router. Attach authentication middleware at the appropriate scope for public routes to remain accessible.
+
+Object-form requirements support scopes and combinations:
+
+```ts
+security: [{ bearerAuth: [] }, { apiKey: [], session: [] }]
+```
+
+Separate entries represent alternatives (OR). Schemes within one entry must be satisfied together (AND). Both string and object forms check names against inferred `securitySchemes`; broadly typed scheme dictionaries cannot provide the same literal-name checking. OAuth2 and OpenID Connect schemes use the same object form, with scope arrays where applicable.
+
+## Individual route requirements
 
 Security can be applied to individual routes.
 
@@ -157,10 +190,11 @@ api.get('/internal/users', {
 
 ## Public routes
 
-Routes without a `security` requirement can remain public.
+Without inherited security defaults, routes without a `security` requirement are documented as public. When a default exists, explicitly use `security: []`:
 
 ```ts
 api.get('/health', {
+  security: [],
   handler: () => ({
     status: 'ok',
   }),
@@ -208,5 +242,5 @@ See the complete working authentication example:
 - Use `security` to document route authentication requirements.
 - Use middleware for actual authentication and authorization.
 - Security configuration is reflected in OpenAPI.
-- Routes without `security` can remain public.
+- Use `security: []` to override inherited documentation requirements for public routes.
 - Security schemes can be combined with request validation and response contracts.

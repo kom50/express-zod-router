@@ -4,6 +4,54 @@ import { describe, it, expect } from 'vitest';
 import { z, createApiRouter } from '../../src';
 
 describe('docs: security metadata and async middleware', () => {
+  it('resolves route, scoped, and global security while leaving authentication to middleware', async () => {
+    const app = express();
+    const api = createApiRouter({
+      securitySchemes: {
+        bearer: { type: 'http', scheme: 'bearer' },
+        basic: { type: 'http', scheme: 'basic' },
+        key: { type: 'apiKey', in: 'header', name: 'X-API-Key' },
+        cookie: { type: 'apiKey', in: 'cookie', name: 'session' },
+        oauth: { type: 'oauth2', flows: { clientCredentials: { tokenUrl: 'https://example.com/token', scopes: { read: 'Read' } } } },
+        oidc: { type: 'openIdConnect', openIdConnectUrl: 'https://example.com/.well-known/openid-configuration' },
+      },
+      security: ['bearer'],
+    });
+    const handler = (_req: unknown, res: express.Response) => res.json('ok');
+    api.get('/global', { handler });
+    api.route({ method: 'get', path: '/public', security: [], handler });
+    api.get('/alternatives', { security: [{ basic: [] }, { key: [], cookie: [] }, { oauth: ['read'] }, { oidc: [] }], handler });
+    const scoped = api.createRouter({ path: '/scoped', security: ['key'] });
+    scoped.get('/private', { handler });
+    scoped({ method: 'get', path: '/public', security: [], handler });
+    scoped.get('/override', { security: ['cookie'], handler });
+    api.createRouter('/inherited').get('/private', { handler });
+    api.createRouter({ path: '/public-scope', security: [] }).get('/health', { handler });
+    api.version('1').get('/private', { handler });
+    api.get('/authenticated', {
+      middleware: [(_req, res) => { res.status(401).json({ message: 'Authentication required' }); }],
+      handler,
+    });
+    api.docs();
+    api.mount(app);
+    const doc = (await request(app).get('/api-docs.json')).body;
+    for (const path of ['/global', '/inherited/private', '/v1/private']) {
+      expect(doc.paths[path].get.security).toEqual([{ bearer: [] }]);
+    }
+    for (const path of ['/public', '/scoped/public', '/public-scope/health']) {
+      expect(doc.paths[path].get.security).toEqual([]);
+    }
+    expect(doc.paths['/scoped/private'].get.security).toEqual([{ key: [] }]);
+    expect(doc.paths['/scoped/override'].get.security).toEqual([{ cookie: [] }]);
+    expect(doc.paths['/alternatives'].get.security).toEqual([{ basic: [] }, { key: [], cookie: [] }, { oauth: ['read'] }, { oidc: [] }]);
+    expect(doc.components.securitySchemes.cookie).toEqual({ type: 'apiKey', in: 'cookie', name: 'session' });
+    expect(doc.components.securitySchemes.basic).toEqual({ type: 'http', scheme: 'basic' });
+    expect(doc.components.securitySchemes.oauth.flows.clientCredentials.scopes).toEqual({ read: 'Read' });
+    expect(doc.components.securitySchemes.oidc.type).toBe('openIdConnect');
+    expect((await request(app).get('/global')).status).toBe(200);
+    expect((await request(app).get('/authenticated')).status).toBe(401);
+  });
+
   it('registers security schemes and supports route + router scoped security', async () => {
     const app = express();
     const api = createApiRouter({

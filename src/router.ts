@@ -33,6 +33,8 @@ export interface CreateApiRouterOptions<S extends SecuritySchemes = SecuritySche
   middleware?: Middleware<Context>[];
   multipart?: MultipartParser;
   securitySchemes?: S;
+  /** Default OpenAPI security requirements. Does not install authentication middleware. */
+  security?: RouteSecurity<NoInfer<S>>;
   version?: VersionConfig;
   onRequest?: ApiLifecycleHooks['onRequest'];
   onResponse?: ApiLifecycleHooks['onResponse'];
@@ -87,6 +89,7 @@ export function createApiRouter<Context extends RequestContext = RequestContext,
       method,
       path,
       config,
+      security: options.security,
       prefix,
       version: versionConfig,
       operationIdStrategy,
