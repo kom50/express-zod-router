@@ -234,7 +234,7 @@ export function mergeOpenApiDocument(base: Record<string, unknown>, overrides: R
 }
 
 /** OpenAPI adapter. It receives a normalized route rather than RouteConfig. */
-export function registerNormalizedRoute(registry: OpenAPIRegistry, route: NormalizedRoute): void {
+export function registerNormalizedRoute(registry: OpenAPIRegistry, route: NormalizedRoute, errorSchema: ZodType = ErrorSchema): void {
   const requestBody = route.request.body;
   const requestBodyConfig = buildOpenApiRequestBody(requestBody?.schema, requestBody?.example, route.request.upload);
   const operation = mergeOpenApiOperation(
@@ -262,7 +262,7 @@ export function registerNormalizedRoute(registry: OpenAPIRegistry, route: Normal
     } as NonNullable<Parameters<typeof registry.registerPath>[0]['request']>,
     ...operation,
     responses: {
-      400: defaultValidationErrorResponse,
+      400: { ...defaultValidationErrorResponse, content: { 'application/json': { schema: errorSchema } } },
       ...Object.fromEntries(
         route.response.definitions.map((definition) => [
           definition.status,

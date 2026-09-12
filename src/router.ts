@@ -51,7 +51,7 @@ export function createApiRouter<Context extends RequestContext = RequestContext,
   options: CreateApiRouterOptions<S, Context> = {},
 ): ApiRouter<S, Context> {
   const registry = new OpenAPIRegistry();
-  registry.register('ApiError', options.errors?.schema ?? ErrorSchema);
+  const errorSchema = registry.register('ApiError', options.errors?.schema ?? ErrorSchema);
   const registeredRoutes: RegisteredRoute[] = [];
   const operationIds = new Set<string>();
   const globalMiddleware: Middleware<Context>[] = [...(options.middleware ?? [])];
@@ -98,7 +98,7 @@ export function createApiRouter<Context extends RequestContext = RequestContext,
       throw new Error(`Duplicate operationId detected: ${normalizedRoute.metadata.operationId}`);
     }
     operationIds.add(normalizedRoute.metadata.operationId);
-    registerNormalizedRoute(registry, normalizedRoute);
+    registerNormalizedRoute(registry, normalizedRoute, errorSchema);
 
     const multipartMiddleware =
       options.multipart && normalizedRoute.request.upload

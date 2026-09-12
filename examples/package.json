@@ -3,6 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "scripts": {
+    "example:errors": "tsx errors/index.ts",
     "example:basic": "tsx basic/index.ts",
     "example:crud": "tsx crud/index.ts",
     "example:middleware": "tsx middleware/index.ts",

@@ -78,7 +78,7 @@ export function chainMiddleware<Context extends RequestContext>(
       }
 
       await onError?.(error);
-      handleRouteError(error, res, next, errorOptions);
+      await handleRouteError(error, res, next, errorOptions);
     }
   };
 }

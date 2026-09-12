@@ -30,7 +30,7 @@ export interface ApiErrorOptions {
 export type ValidationSource = 'body' | 'params' | 'query' | 'headers' | 'cookies' | 'response';
 
 export interface ApiErrorHandlingOptions {
-  schema?: z.ZodType<ErrorResponse>;
+  schema?: z.ZodType;
   responses?: Partial<Record<number, string>>;
   serialize?: (error: ErrorResponse) => unknown;
 }
@@ -95,21 +95,24 @@ function errorResponse(error: unknown, options: ApiErrorHandlingOptions): ErrorR
   };
 }
 
-export function handleRouteError(error: unknown, res: Response, next: NextFunction, options: ApiErrorHandlingOptions = {}): void {
+export async function handleRouteError(error: unknown, res: Response, next: NextFunction, options: ApiErrorHandlingOptions = {}): Promise<void> {
   if (res.headersSent || res.writableEnded) {
     next(error);
     return;
   }
 
-  const response = errorResponse(error, options);
-  const payload = options.serialize ? options.serialize(response) : response;
-  if (options.schema) {
-    try {
-      options.schema.parse(payload);
-    } catch {
-      res.status(500).json({ status: 500, code: 'INTERNAL_SERVER_ERROR', message: 'Internal server error' });
+  try {
+    const response = errorResponse(error, options);
+    const payload = options.serialize ? await options.serialize(response) : response;
+    if (res.headersSent || res.writableEnded || res.destroyed) return;
+    if (options.schema) options.schema.parse(payload);
+    res.status(response.status).json(payload);
+  } catch {
+    // Preserve the original error and never retry a failing serializer.
+    if (res.headersSent || res.writableEnded || res.destroyed) {
+      next(error);
       return;
     }
+    res.status(500).json({ status: 500, code: 'INTERNAL_SERVER_ERROR', message: 'Internal server error' });
   }
-  res.status(response.status).json(payload);
 }
