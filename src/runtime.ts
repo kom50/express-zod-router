@@ -180,7 +180,7 @@ export function createRuntimeHandler(route: NormalizedRoute, onError?: RouteErro
       res.status(responseStatus).json(payload);
     } catch (error) {
       await onError?.(error);
-      handleRouteError(toRequestValidationError(validationSource, error) ?? error, res, next, errorOptions);
+      await handleRouteError(toRequestValidationError(validationSource, error) ?? error, res, next, errorOptions);
     }
   };
 }

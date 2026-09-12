@@ -20,6 +20,9 @@ examples/
 │   └── index.ts
 ├── auth/
 │   └── index.ts
+├── errors/
+│   ├── app.ts
+│   └── index.ts
 ├── openapi/
 │   └── index.ts
 ├── versioning/
@@ -56,6 +59,7 @@ npm run example:basic
 npm run example:crud
 npm run example:middleware
 npm run example:auth
+npm run example:errors
 npm run example:openapi
 npm run example:versioning
 npm run example:upload
@@ -82,5 +86,8 @@ npm run typecheck
 | Upload | 3006 | http://localhost:3006 |
 | Complete | 3007 | http://localhost:3007 |
 | Headers and cookies | 3008 | http://localhost:3008/api/profile |
+| Error serialization | 3009 | http://localhost:3009/api/users/1 |
 
 The OpenAPI examples expose Swagger UI at `/api-docs` and the JSON document at `/api-docs.json` unless a custom docs path is configured.
+
+The errors example demonstrates custom error bodies, validation failures, duplicate emails, missing users, and safe serializer fallbacks. Build the root package with `npm run build` before running it. See [the error guide](../docs/api/errors.md#working-example-users-api) for curl commands and expected responses.

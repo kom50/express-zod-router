@@ -29,3 +29,5 @@ The examples are intentionally progressive. `complete` combines the major featur
 
 `headers-cookies` demonstrates typed Zod validation for request headers and
 cookies, header transforms, cookie defaults, and OpenAPI parameters.
+
+`errors` demonstrates `ApiError`, custom error serialization and schemas, original-error observation, safe fallback responses, and matching OpenAPI documentation.
