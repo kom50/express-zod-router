@@ -37,6 +37,7 @@ api.delete(...)
 | `path`                | `string`                         | Route path                       |
 | `handler`             | `function`                       | Handles the request              |
 | `request`             | `RouteRequestConfig`             | Groups request inputs            |
+| `meta`                | `RouteMetaConfig`                | Groups route metadata            |
 | `body`                | `ZodType`                        | Validates and types `req.body`   |
 | `params`              | `ZodType`                        | Validates and types `req.params` |
 | `query`               | `ZodType`                        | Validates and types `req.query`  |
@@ -124,6 +125,23 @@ api.patch('/users/:id', {
 ```
 
 `request` supports `body`, `params`, `query`, `headers`, `cookies`, and `upload`. Existing flat fields remain supported. Define each input in one place: TypeScript rejects both `body` and `request.body`, and the router also rejects duplicates at registration when JavaScript or unchecked values are used.
+
+## Grouped route metadata
+
+Use `meta` to keep OpenAPI details together. It uses the same generated document and route inspection data as the flat fields.
+
+```ts
+api.get('/users/:id', {
+  meta: {
+    operationId: 'getUser',
+    summary: 'Get user',
+    tags: ['Users'],
+  },
+  handler: (req) => getUser(req.params.id),
+});
+```
+
+`meta` supports `operationId`, `summary`, `description`, `tags`, `deprecated`, and `externalDocs`. Existing flat metadata fields remain supported. TypeScript rejects duplicate values such as `summary` and `meta.summary`, and the router also rejects unchecked duplicates at registration.
 
 ## `body`
 

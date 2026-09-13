@@ -244,6 +244,19 @@ export interface OpenApiOperationOverrides {
   [key: string]: unknown;
 }
 
+/** Groups route metadata used by OpenAPI and tooling. */
+export interface RouteMetaConfig {
+  operationId?: string;
+  summary?: string;
+  description?: string;
+  tags?: string[];
+  deprecated?: boolean;
+  externalDocs?: {
+    url: string;
+    description?: string;
+  };
+}
+
 /**
  * Builds a discriminated union from a `responses` map, e.g.
  *
@@ -278,14 +291,9 @@ interface RouteConfigBase<
 > {
   method: Method;
   path: string;
-  operationId?: string;
-  summary?: string;
-  description?: string;
   version?: ApiVersion | false;
-  deprecated?: boolean;
   bodyExample?: unknown;
   openapi?: OpenApiOperationOverrides;
-  tags?: string[];
   security?: RouteSecurity<S>;
 
   /**
@@ -362,6 +370,24 @@ type GroupedRouteRequestConfig<
   upload?: never;
 };
 
+type FlatRouteMetadataConfig = {
+  meta?: never;
+  operationId?: string;
+  summary?: string;
+  description?: string;
+  tags?: string[];
+  deprecated?: boolean;
+};
+
+type GroupedRouteMetadataConfig = {
+  meta: RouteMetaConfig;
+  operationId?: never;
+  summary?: never;
+  description?: never;
+  tags?: never;
+  deprecated?: never;
+};
+
 /**
  * Public route declaration. Request inputs can use either the existing flat
  * fields or `request`, but the same input cannot be declared in both forms.
@@ -380,6 +406,9 @@ export type RouteConfig<
 > = RouteConfigBase<S, B, P, Q, R, Rs, H, C, Context, Upload> & (
   | FlatRouteRequestConfig<B, P, Q, H, C, Upload>
   | GroupedRouteRequestConfig<B, P, Q, H, C, Upload>
+) & (
+  | FlatRouteMetadataConfig
+  | GroupedRouteMetadataConfig
 );
 
 /**
