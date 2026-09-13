@@ -976,7 +976,7 @@ handler: ({ params, response }) => {
 };
 ```
 
-Available helpers are `ok`, `created`, `accepted`, `noContent`, `badRequest`, `unauthorized`, `forbidden`, `notFound`, `conflict`, and `unprocessableEntity`. Use `response.status(status, data)` or `response.json({ status, data, headers })` for another declared status. Helper responses can set headers, for example `response.created(todo, { headers: { Location: '/todos/1' } })`.
+Available helpers are `ok`, `created`, `accepted`, `noContent`, `badRequest`, `unauthorized`, `forbidden`, `notFound`, `conflict`, and `unprocessableEntity`. Use `response.status(status, data)` or `response.json({ status, data, headers })` for another declared status. Use `response.text(data)` or `response.text(status, data)` for a declared string response with a `text/*` content type. Helper responses can set headers, for example `response.created(todo, { headers: { Location: '/todos/1' } })`.
 
 For a simple `response: Schema` route, use `response.ok(data)`. For `204`, declare it in `responses` and return `response.noContent()`.
 

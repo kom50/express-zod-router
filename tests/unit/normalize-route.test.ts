@@ -66,6 +66,19 @@ describe('normalizeRoute', () => {
     });
   });
 
+  it('keeps a single response content type in the canonical contract', () => {
+    const route = normalizeRoute({
+      method: 'get',
+      path: '/robots.txt',
+      config: {
+        response: { schema: z.string(), contentType: 'text/plain' },
+        handler: () => 'User-agent: *',
+      },
+    });
+
+    expect(route.response.definitions[0]?.contentType).toBe('text/plain');
+  });
+
   it('rejects unsupported versions during normalization', () => {
     expect(() =>
       normalizeRoute({

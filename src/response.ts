@@ -36,6 +36,26 @@ type SimpleStatusMethod<Schema extends ZodType | undefined, Status extends numbe
   ? (data: z.infer<Schema>, options?: { headers?: Record<string, string> }) => ApiResponse<Status, z.infer<Schema>>
   : (data?: undefined, options?: { headers?: Record<string, string> }) => ApiResponse<Status, undefined>;
 
+type TextStatus<Responses extends Record<number, ResponseConfig>> = {
+  [Status in keyof Responses]: Status extends number
+    ? ResponseBody<Responses[Status]> extends string
+      ? Status
+      : never
+    : never;
+}[keyof Responses];
+
+type TextMethod<Responses extends Record<number, ResponseConfig>> = <Status extends TextStatus<Responses>>(
+  status: Status,
+  data: Extract<ResponseBody<Responses[Status]>, string>,
+  options?: { headers?: Record<string, string> },
+) => ResponseForStatus<Responses, Status>;
+
+type SimpleTextMethod<Schema extends ZodType | undefined> = Schema extends ZodType
+  ? z.infer<Schema> extends string
+    ? (data: z.infer<Schema>, options?: { headers?: Record<string, string> }) => ApiResponse<200, z.infer<Schema>>
+    : never
+  : never;
+
 export type ResponseHelpers<Schema extends ZodType | undefined, Responses extends Record<number, ResponseConfig> | undefined> =
   Responses extends Record<number, ResponseConfig>
     ? {
@@ -57,6 +77,8 @@ export type ResponseHelpers<Schema extends ZodType | undefined, Responses extend
         json: <Status extends Extract<keyof Responses, number>>(
           options: ApiResponseOptions<Status, ResponseBody<Responses[Status]>>,
         ) => ResponseForStatus<Responses, Status>;
+        /** Send a declared string response using its configured content type. */
+        text: TextMethod<Responses>;
       }
     : {
         ok: SimpleStatusMethod<Schema, 200>;
@@ -77,6 +99,8 @@ export type ResponseHelpers<Schema extends ZodType | undefined, Responses extend
         json: (
           options: ApiResponseOptions<200, Schema extends ZodType ? z.infer<Schema> : undefined>,
         ) => ApiResponse<200, Schema extends ZodType ? z.infer<Schema> : undefined>;
+        /** Send a declared string response using its configured content type. */
+        text: SimpleTextMethod<Schema>;
       };
 
 function response(status: number, data?: unknown, headers?: Record<string, string>): { status: number; body?: unknown; headers?: Record<string, string> } {
@@ -100,5 +124,12 @@ export function createResponseHelpers(): ResponseHelpers<any, any> {
     unprocessableEntity: withStatus(HttpStatus.UNPROCESSABLE_ENTITY),
     status: (status: number, data?: unknown, options?: { headers?: Record<string, string> }) => response(status, data, options?.headers),
     json,
+    text: (
+      statusOrData: number | string,
+      dataOrOptions?: string | { headers?: Record<string, string> },
+      options?: { headers?: Record<string, string> },
+    ) => typeof statusOrData === 'number'
+      ? response(statusOrData, dataOrOptions as string, options?.headers)
+      : response(HttpStatus.OK, statusOrData, (dataOrOptions as { headers?: Record<string, string> } | undefined)?.headers),
   } as ResponseHelpers<any, any>;
 }

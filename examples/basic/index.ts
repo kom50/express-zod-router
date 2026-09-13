@@ -44,6 +44,11 @@ api.post('/echo', {
   }),
 });
 
+api.get('/robots.txt', {
+  response: { schema: z.string(), contentType: 'text/plain' },
+  handler: ({ response }) => response.text('User-agent: *\nDisallow:\n'),
+});
+
 api.docs({
   info: {
     title: 'Basic API',
