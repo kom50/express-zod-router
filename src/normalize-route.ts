@@ -105,13 +105,30 @@ function normalizeResponses(
   };
 }
 
+function assertNoDuplicateRequestDefinitions(config: NormalizeRouteOptions['config']): void {
+  if (!config.request) return;
+
+  for (const field of ['body', 'params', 'query', 'headers', 'cookies', 'upload'] as const) {
+    if (config[field] !== undefined && config.request[field] !== undefined) {
+      throw new Error(`Cannot define both '${field}' and 'request.${field}' for the same route`);
+    }
+  }
+}
+
 /** Converts the ergonomic public configuration into the internal route contract. */
 export function normalizeRoute<S extends SecuritySchemes = SecuritySchemes>(options: NormalizeRouteOptions<S>): NormalizedRoute {
   const { method, path, config, prefix, version: versionConfig, operationIdStrategy = 'rest' } = options;
+  assertNoDuplicateRequestDefinitions(config);
   const resolvedVersion = resolveVersion(config.version, versionConfig);
   const basePath = resolvedVersion ? joinPaths(normalizePrefix(prefix), `/${resolvedVersion}`) : normalizePrefix(prefix);
   const normalizedPath = joinPaths(basePath, path);
-  const requestBody = unwrapSchema(config.body as ZodType | RouteSchemaConfig<ZodType> | undefined, config.bodyExample);
+  const request = config.request;
+  const requestBody = unwrapSchema((request?.body ?? config.body) as ZodType | RouteSchemaConfig<ZodType> | undefined, config.bodyExample);
+  const params = request?.params ?? config.params;
+  const query = request?.query ?? config.query;
+  const headers = request?.headers ?? config.headers;
+  const cookies = request?.cookies ?? config.cookies;
+  const upload = request?.upload ?? config.upload;
   const normalizedResponse = normalizeResponses(
     config.response as ZodType | RouteResponseConfig<ZodType> | undefined,
     config.responseExample,
@@ -126,12 +143,12 @@ export function normalizeRoute<S extends SecuritySchemes = SecuritySchemes>(opti
     method,
     path: normalizedPath,
     request: {
-      ...(requestBody.schema && { body: requestBody }),
-      ...(config.params && { params: config.params }),
-      ...(config.query && { query: config.query }),
-      ...(config.headers && { headers: config.headers }),
-      ...(config.cookies && { cookies: config.cookies }),
-      ...(config.upload && { upload: config.upload }),
+      ...(requestBody.schema ? { body: { schema: requestBody.schema, example: requestBody.example } } : {}),
+      ...(params && { params }),
+      ...(query && { query }),
+      ...(headers && { headers }),
+      ...(cookies && { cookies }),
+      ...(upload && { upload }),
     },
     response: normalizedResponse,
     middleware: [...(config.middleware ?? [])] as RequestHandler[],

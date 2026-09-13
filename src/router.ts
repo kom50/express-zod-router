@@ -90,7 +90,7 @@ export function createApiRouter<Context extends RequestContext = RequestContext,
     const normalizedRoute = normalizeRoute({
       method,
       path,
-      config,
+      config: config as any,
       security: options.security,
       prefix,
       version: versionConfig,

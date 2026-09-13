@@ -135,8 +135,10 @@ usersV1.post('/', {
 
 usersV1.patch('/:id', {
   operationId: 'updateUserV1',
-  params: z.object({ id: z.string().uuid() }),
-  body: UpdateUser,
+  request: {
+    params: z.object({ id: z.string().uuid() }),
+    body: UpdateUser,
+  },
   responses: {
     200: { schema: User },
     404: { schema: ErrorSchema, description: 'User not found' },

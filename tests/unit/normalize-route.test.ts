@@ -79,6 +79,33 @@ describe('normalizeRoute', () => {
     expect(route.response.definitions[0]?.contentType).toBe('text/plain');
   });
 
+  it('normalizes grouped request configuration into the canonical request contract', () => {
+    const body = z.object({ name: z.string() });
+    const params = z.object({ id: z.string() });
+    const query = z.object({ page: z.coerce.number() });
+    const headers = z.object({ 'x-request-id': z.string() });
+    const cookies = z.object({ session: z.string() });
+    const upload = { type: 'single', field: 'avatar' } as const;
+
+    const route = normalizeRoute({
+      method: 'post',
+      path: '/users/:id',
+      config: {
+        request: {
+          body: { schema: body, example: { name: 'Ada' } },
+          params,
+          query,
+          headers,
+          cookies,
+          upload,
+        },
+        handler: () => ({}),
+      },
+    });
+
+    expect(route.request).toEqual({ body: { schema: body, example: { name: 'Ada' } }, params, query, headers, cookies, upload });
+  });
+
   it('rejects unsupported versions during normalization', () => {
     expect(() =>
       normalizeRoute({
