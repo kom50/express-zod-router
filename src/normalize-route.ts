@@ -62,9 +62,9 @@ function unwrapSchema(value?: ZodType | RouteSchemaConfig<ZodType>, fallbackExam
 function unwrapResponse(value?: ZodType | RouteResponseConfig<ZodType>, fallbackExample?: unknown) {
   if (value && typeof value === 'object' && 'schema' in value) {
     const config = value as RouteResponseConfig<ZodType>;
-    return { schema: config.schema, example: config.example, description: config.description };
+    return { schema: config.schema, example: config.example, description: config.description, contentType: config.contentType };
   }
-  return { schema: value, example: fallbackExample, description: undefined };
+  return { schema: value, example: fallbackExample, description: undefined, contentType: undefined };
 }
 
 function normalizeResponses(
@@ -99,7 +99,7 @@ function normalizeResponses(
         schema: normalized.schema,
         description: normalized.description ?? responseDescription,
         example: normalized.example,
-        contentType: 'application/json',
+        contentType: normalized.contentType ?? 'application/json',
       },
     ],
   };

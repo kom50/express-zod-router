@@ -1,10 +1,15 @@
 import type { NextFunction, Request, RequestHandler, Response } from 'express';
+import { z } from 'zod';
 import { ApiError, handleRouteError, toRequestValidationError, type ApiErrorHandlingOptions, type ValidationSource } from './errors';
 import { createResponseHelpers } from './response';
 import type { NormalizedRoute } from './route-contract';
 import type { UploadedFile, UploadConstraints, UploadConfig, UploadSize } from './types';
 
 export type RouteErrorObserver = (error: unknown) => void | Promise<void>;
+
+function isJsonContentType(contentType: string): boolean {
+  return /^application\/(?:[a-z0-9.+-]+\+)?json(?:;|$)/i.test(contentType);
+}
 
 function isResponseEnvelope(value: unknown, route: NormalizedRoute): value is { status: number; body?: unknown; headers?: Record<string, string> } {
   if (!value || typeof value !== 'object' || !('status' in value) || typeof value.status !== 'number') return false;
@@ -177,7 +182,12 @@ export function createRuntimeHandler(route: NormalizedRoute, onError?: RouteErro
         res.status(204).send();
         return;
       }
-      res.status(responseStatus).json(payload);
+      if (isJsonContentType(definition.contentType)) {
+        res.status(responseStatus).type(definition.contentType).json(payload);
+        return;
+      }
+      const text = z.string().parse(payload);
+      res.status(responseStatus).type(definition.contentType).send(text);
     } catch (error) {
       await onError?.(error);
       await handleRouteError(toRequestValidationError(validationSource, error) ?? error, res, next, errorOptions);

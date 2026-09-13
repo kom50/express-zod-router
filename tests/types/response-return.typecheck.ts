@@ -4,6 +4,29 @@ const api = createApiRouter();
 const todos = [{ id: '1', title: 'Learn Zod router' }];
 
 const statusSchema = z.object({ status: z.union([z.string(), z.number()]) });
+const textSchema = z.string();
+api.get('/text', {
+  response: { schema: textSchema, contentType: 'text/plain' },
+  handler: ({ response }) => response.text('ready'),
+});
+api.get('/text-status', {
+  responses: {
+    200: { schema: textSchema, contentType: 'text/plain' },
+    404: { schema: z.object({ message: z.string() }), contentType: 'application/json' },
+  },
+  handler: ({ response }) => {
+    // @ts-expect-error text only accepts statuses with string response schemas
+    response.text(404, 'Missing');
+    return response.text(200, 'ready');
+  },
+});
+api.get('/not-text', {
+  response: z.object({ ok: z.boolean() }),
+  handler: ({ response }) => {
+    // @ts-expect-error a text helper requires a string response schema
+    return response.text('ready');
+  },
+});
 for (const status of ['active', 200]) {
   api.get('/single-status', { response: statusSchema, handler: () => ({ status }) });
   api.get('/multiple-status', { responses: { 200: { schema: statusSchema } }, handler: () => ({ status }) });

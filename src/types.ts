@@ -193,6 +193,7 @@ export interface RouteSchemaConfig<TSchema extends ZodType = ZodType> {
 
 export interface RouteResponseConfig<TSchema extends ZodType = ZodType> extends RouteSchemaConfig<TSchema> {
   description?: string;
+  contentType?: string;
 }
 
 type InferSchema<T> = T extends { schema: infer S extends ZodType } ? S : T extends ZodType ? T : never;

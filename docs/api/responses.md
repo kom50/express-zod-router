@@ -56,13 +56,28 @@ return response.created(user, {
 });
 ```
 
+## Text responses
+
+Set a string `contentType` such as `text/plain`, `text/csv`, or `text/html` when an endpoint should return text instead of JSON. The router validates the string, sets that content type, and sends the raw text. Use `response.text()` for a single response or `response.text(status, data)` when you declare multiple statuses.
+
+```ts
+api.get('/users/export', {
+  responses: {
+    200: { schema: z.string(), contentType: 'text/csv' },
+  },
+  handler: ({ response }) => response.text(200, 'id,name\n1,Ada\n'),
+});
+```
+
+The client receives `text/csv` and `id,name\n1,Ada\n`, not a JSON-encoded string. A response with `application/json` or a `+json` media type still uses JSON serialization. The declared media type controls the response; headers supplied by a helper cannot replace it. Use raw Express `res` for formats that are not text or JSON, such as streams and binary downloads.
+
 ## Response configuration
 
 | Option        | Type      | Description                            |
 | ------------- | --------- | -------------------------------------- |
 | `schema`      | `ZodType` | Response validation and OpenAPI schema |
 | `description` | `string`  | OpenAPI response description           |
-| `contentType` | `string`  | Response content type                  |
+| `contentType` | `string`  | Response content type and runtime format |
 | `example`     | `unknown` | OpenAPI response example               |
 
 ## `response`
