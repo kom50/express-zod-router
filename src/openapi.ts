@@ -283,8 +283,10 @@ export function registerNormalizedRoute(registry: OpenAPIRegistry, route: Normal
   });
 }
 
-export function mountDocs(app: Express, options: ApiDocsOptions, registry: OpenAPIRegistry): void {
-  const { path = '/api-docs', jsonPath = '/api-docs.json', info = {}, servers = [{ url: '/' }], openapi = {}, swagger = {} } = options;
+export type OpenApiDocument = ReturnType<OpenApiGeneratorV3['generateDocument']>;
+
+export function generateOpenApiDocument(options: ApiDocsOptions, registry: OpenAPIRegistry): OpenApiDocument {
+  const { info = {}, servers = [{ url: '/' }], openapi = {} } = options;
 
   const generator = new OpenApiGeneratorV3(registry.definitions);
   const document = generator.generateDocument({
@@ -297,7 +299,12 @@ export function mountDocs(app: Express, options: ApiDocsOptions, registry: OpenA
     servers: servers as Parameters<typeof generator.generateDocument>[0]['servers'],
   });
 
-  const finalDocument = mergeOpenApiDocument(document as unknown as Record<string, unknown>, openapi as Record<string, unknown>);
+  // Return a detached JSON snapshot, including user-provided overrides.
+  return JSON.parse(JSON.stringify(mergeOpenApiDocument(document as unknown as Record<string, unknown>, openapi))) as OpenApiDocument;
+}
+
+export function mountDocs(app: Express, options: ApiDocsOptions, finalDocument: OpenApiDocument): void {
+  const { path = '/api-docs', jsonPath = '/api-docs.json', swagger = {} } = options;
 
   app.get(jsonPath, (_req, res) => {
     res.json(finalDocument);

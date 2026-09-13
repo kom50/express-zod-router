@@ -41,3 +41,5 @@ export type {
 export type { ApiDocsOptions, ApiDocsInfo, ApiDocsServer } from './docs';
 export type { CreateApiRouterOptions } from './router';
 export { z };
+
+export type { OpenApiDocument, OpenApiTooling, RouteInspection, InspectOptions } from './tooling';

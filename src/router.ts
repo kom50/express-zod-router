@@ -5,7 +5,9 @@ import type { ZodType } from 'zod';
 import type { ApiDocsOptions } from './docs';
 import { joinPaths, normalizePrefix } from './helpers';
 import { createLifecycleHandler } from './lifecycle';
-import { mountDocs, registerNormalizedRoute } from './openapi';
+import { generateOpenApiDocument, mountDocs, registerNormalizedRoute } from './openapi';
+import type { NormalizedRoute } from './route-contract';
+import type { InspectOptions, RouteInspection } from './tooling';
 import { normalizeRoute } from './normalize-route';
 import { ErrorSchema, type ApiErrorHandlingOptions } from './errors';
 import type {
@@ -124,6 +126,7 @@ export function createApiRouter<Context extends RequestContext = RequestContext,
       method,
       path: normalizedRoute.path,
       handler: expressHandler,
+      contract: normalizedRoute,
     });
 
     return api;
@@ -281,49 +284,70 @@ export function createApiRouter<Context extends RequestContext = RequestContext,
     });
   }
 
+  function generateDocument() {
+    const mergedOpenApi = {
+      ...(docsOptions?.openapi ?? {}),
+    } as Record<string, unknown>;
+
+    if (securitySchemes) {
+      const existingComponents =
+        typeof mergedOpenApi.components === 'object' && mergedOpenApi.components ? (mergedOpenApi.components as Record<string, unknown>) : {};
+
+      const existingSecuritySchemes =
+        typeof existingComponents.securitySchemes === 'object' && existingComponents.securitySchemes
+          ? (existingComponents.securitySchemes as Record<string, unknown>)
+          : {};
+
+      mergedOpenApi.components = {
+        ...existingComponents,
+        securitySchemes: {
+          ...securitySchemes,
+          ...existingSecuritySchemes,
+        },
+      };
+    }
+
+    // Inject tag descriptions into top-level tags array
+    if (tagDescriptions.size > 0) {
+      const existingTags = Array.isArray(mergedOpenApi.tags) ? [...(mergedOpenApi.tags as Array<Record<string, unknown>>)] : [];
+      const existingTagNames = new Set(existingTags.map((t) => t.name));
+      for (const [name, meta] of tagDescriptions) {
+        if (!existingTagNames.has(name)) {
+          existingTags.push({ name, ...meta });
+        }
+      }
+      mergedOpenApi.tags = existingTags;
+    }
+
+    return generateOpenApiDocument({ ...docsOptions, openapi: mergedOpenApi }, registry);
+  }
+
+  function inspect<K extends keyof RouteInspection = keyof RouteInspection>(options?: InspectOptions<K>): Pick<RouteInspection, K>[] {
+    return registeredRoutes.map(({ contract }) => {
+      const metadata = { ...contract.metadata, ...contract.metadata.openapi };
+      const result: RouteInspection = {
+        method: contract.method,
+        path: contract.path,
+        operationId: metadata.operationId,
+        ...(metadata.summary !== undefined && { summary: metadata.summary }),
+        ...(metadata.description !== undefined && { description: metadata.description }),
+        ...(metadata.tags !== undefined && { tags: metadata.tags }),
+        ...(metadata.deprecated !== undefined && { deprecated: metadata.deprecated }),
+        ...(contract.version && { version: contract.version.value }),
+        ...(contract.security !== undefined && { security: contract.security }),
+      };
+      const selected = options?.fields
+        ? Object.fromEntries(options.fields.filter(field => Object.prototype.hasOwnProperty.call(result, field)).map(field => [field, result[field]]))
+        : result;
+      return JSON.parse(JSON.stringify(selected)) as Pick<RouteInspection, K>;
+    });
+  }
+
   function mount(app: Express): Express {
     for (const registeredRoute of registeredRoutes) {
       app[registeredRoute.method](registeredRoute.path, registeredRoute.handler);
     }
-
-    if (docsOptions) {
-      const mergedOpenApi = {
-        ...(docsOptions.openapi ?? {}),
-      } as Record<string, unknown>;
-
-      if (securitySchemes) {
-        const existingComponents =
-          typeof mergedOpenApi.components === 'object' && mergedOpenApi.components ? (mergedOpenApi.components as Record<string, unknown>) : {};
-
-        const existingSecuritySchemes =
-          typeof existingComponents.securitySchemes === 'object' && existingComponents.securitySchemes
-            ? (existingComponents.securitySchemes as Record<string, unknown>)
-            : {};
-
-        mergedOpenApi.components = {
-          ...existingComponents,
-          securitySchemes: {
-            ...securitySchemes,
-            ...existingSecuritySchemes,
-          },
-        };
-      }
-
-      // Inject tag descriptions into top-level tags array
-      if (tagDescriptions.size > 0) {
-        const existingTags = Array.isArray(mergedOpenApi.tags) ? (mergedOpenApi.tags as Array<Record<string, unknown>>) : [];
-        const existingTagNames = new Set(existingTags.map((t) => t.name));
-        for (const [name, meta] of tagDescriptions) {
-          if (!existingTagNames.has(name)) {
-            existingTags.push({ name, ...meta });
-          }
-        }
-        mergedOpenApi.tags = existingTags;
-      }
-
-      mountDocs(app, { ...docsOptions, openapi: mergedOpenApi }, registry);
-    }
-
+    if (docsOptions) mountDocs(app, docsOptions, generateDocument());
     return app;
   }
 
@@ -344,12 +368,18 @@ export function createApiRouter<Context extends RequestContext = RequestContext,
       return api;
     },
     registry,
+    openapi: {
+      generate: generateDocument,
+      toJSON: () => JSON.stringify(generateDocument(), null, 2) + '\n',
+    },
+    inspect,
   };
 
   return api;
 }
 
 interface RegisteredRoute {
+  contract: NormalizedRoute;
   method: 'get' | 'post' | 'put' | 'patch' | 'delete';
   path: string;
   handler: RequestHandler;

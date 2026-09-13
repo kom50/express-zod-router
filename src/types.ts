@@ -475,8 +475,12 @@ export interface ApiRouter<S extends AnySecuritySchemes = AnySecuritySchemes, Co
 
   routes: (modules: ApiRouteModule<S, Context>[]) => ApiRouter<S, Context>;
   mount: (app: import('express').Express) => import('express').Express;
-  docs: (options?: import('./docs').ApiDocsOptions) => ApiRouter<S>;
+  docs: (options?: import('./docs').ApiDocsOptions) => ApiRouter<S, Context>;
   use: (middleware: Middleware<Context>) => ApiRouter<S, Context>;
+  openapi: import('./tooling').OpenApiTooling;
+  inspect: <K extends keyof import('./tooling').RouteInspection = keyof import('./tooling').RouteInspection>(
+    options?: import('./tooling').InspectOptions<K>,
+  ) => Pick<import('./tooling').RouteInspection, K>[];
   registry: import('@asteasolutions/zod-to-openapi').OpenAPIRegistry;
 }
 
