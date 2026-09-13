@@ -29,6 +29,19 @@ api.post('/users', {
 | `headers` | `ZodType`     | Validates and types `req.headers` |
 | `cookies` | `ZodType`     | Validates and types `req.cookies` |
 
+For routes that validate several inputs, group them under `request`. It has the same validation and handler types as the flat form.
+
+```ts
+api.post('/users/:id', {
+  request: {
+    params: z.object({ id: z.string().uuid() }),
+    headers: z.object({ 'x-request-id': z.string() }),
+    body: CreateUserSchema,
+  },
+  handler: (req) => createUser(req.params.id, req.body, req.headers['x-request-id']),
+});
+```
+
 ## `body`
 
 Defines and validates the request body.

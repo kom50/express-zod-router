@@ -36,9 +36,12 @@ api.delete(...)
 | `method`              | `Method`                         | HTTP method for `api.route()`    |
 | `path`                | `string`                         | Route path                       |
 | `handler`             | `function`                       | Handles the request              |
+| `request`             | `RouteRequestConfig`             | Groups request inputs            |
 | `body`                | `ZodType`                        | Validates and types `req.body`   |
 | `params`              | `ZodType`                        | Validates and types `req.params` |
 | `query`               | `ZodType`                        | Validates and types `req.query`  |
+| `headers`             | `ZodType`                        | Validates and types `req.headers` |
+| `cookies`             | `ZodType`                        | Validates and types `req.cookies` |
 | `middleware`          | `Middleware[]`                   | Route-specific middleware        |
 | `response`            | `ZodType \| ResponseConfig`      | Successful response contract     |
 | `responses`           | `Record<number, ResponseConfig>` | Multiple HTTP responses          |
@@ -104,6 +107,23 @@ api.get('/users/:id', {
 ```
 
 The request is typed from the route schemas.
+
+## Grouped request configuration
+
+Use `request` when a route has several request inputs. It keeps the route declaration easier to read while using the same validation, handler types, and OpenAPI output as the flat fields.
+
+```ts
+api.patch('/users/:id', {
+  request: {
+    params: z.object({ id: z.string().uuid() }),
+    query: z.object({ notify: z.coerce.boolean().default(false) }),
+    body: z.object({ name: z.string().min(1) }),
+  },
+  handler: async (req) => updateUser(req.params.id, req.body, req.query.notify),
+});
+```
+
+`request` supports `body`, `params`, `query`, `headers`, `cookies`, and `upload`. Existing flat fields remain supported. Define each input in one place: TypeScript rejects both `body` and `request.body`, and the router also rejects duplicates at registration when JavaScript or unchecked values are used.
 
 ## `body`
 

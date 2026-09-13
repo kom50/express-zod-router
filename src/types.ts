@@ -191,6 +191,26 @@ export interface RouteSchemaConfig<TSchema extends ZodType = ZodType> {
   example?: unknown;
 }
 
+/**
+ * Groups the schemas and upload settings that describe an HTTP request.
+ * Flat route fields remain available for existing routes.
+ */
+export interface RouteRequestConfig<
+  B extends ZodType | undefined = undefined,
+  P extends ZodType | undefined = undefined,
+  Q extends ZodType | undefined = undefined,
+  H extends ZodType | undefined = undefined,
+  C extends ZodType | undefined = undefined,
+  Upload extends UploadConfig | undefined = undefined,
+> {
+  body?: B | RouteSchemaConfig<NonNullable<B>>;
+  params?: P;
+  query?: Q;
+  headers?: H;
+  cookies?: C;
+  upload?: Upload;
+}
+
 export interface RouteResponseConfig<TSchema extends ZodType = ZodType> extends RouteSchemaConfig<TSchema> {
   description?: string;
   contentType?: string;
@@ -244,7 +264,7 @@ export type InferSuccessResponseBody<Rs extends Record<number, ResponseConfig>> 
   [K in keyof Rs]: K extends SuccessStatusCode ? (Rs[K] extends { schema: infer S extends ZodType } ? z.infer<S> : never) : never;
 }[keyof Rs];
 
-export interface RouteConfig<
+interface RouteConfigBase<
   S extends AnySecuritySchemes = AnySecuritySchemes,
   B extends ZodType | undefined = undefined,
   P extends ZodType | undefined = undefined,
@@ -266,13 +286,7 @@ export interface RouteConfig<
   bodyExample?: unknown;
   openapi?: OpenApiOperationOverrides;
   tags?: string[];
-  body?: B | RouteSchemaConfig<NonNullable<B>>;
-  params?: P;
-  query?: Q;
-  headers?: H;
-  cookies?: C;
   security?: RouteSecurity<S>;
-  upload?: Upload;
 
   /**
    * Route-level middleware. Executes after global middleware, before validation.
@@ -313,6 +327,60 @@ export interface RouteConfig<
       ? z.infer<InferSchema<R>> | ApiResponse<number, z.infer<InferSchema<R>>> | Promise<z.infer<InferSchema<R>> | ApiResponse<number, z.infer<InferSchema<R>>>> | Response | Promise<Response>
       : unknown;
 }
+
+type FlatRouteRequestConfig<
+  B extends ZodType | undefined,
+  P extends ZodType | undefined,
+  Q extends ZodType | undefined,
+  H extends ZodType | undefined,
+  C extends ZodType | undefined,
+  Upload extends UploadConfig | undefined,
+> = {
+  request?: never;
+  body?: B | RouteSchemaConfig<NonNullable<B>>;
+  params?: P;
+  query?: Q;
+  headers?: H;
+  cookies?: C;
+  upload?: Upload;
+};
+
+type GroupedRouteRequestConfig<
+  B extends ZodType | undefined,
+  P extends ZodType | undefined,
+  Q extends ZodType | undefined,
+  H extends ZodType | undefined,
+  C extends ZodType | undefined,
+  Upload extends UploadConfig | undefined,
+> = {
+  request: RouteRequestConfig<B, P, Q, H, C, Upload>;
+  body?: never;
+  params?: never;
+  query?: never;
+  headers?: never;
+  cookies?: never;
+  upload?: never;
+};
+
+/**
+ * Public route declaration. Request inputs can use either the existing flat
+ * fields or `request`, but the same input cannot be declared in both forms.
+ */
+export type RouteConfig<
+  S extends AnySecuritySchemes = AnySecuritySchemes,
+  B extends ZodType | undefined = undefined,
+  P extends ZodType | undefined = undefined,
+  Q extends ZodType | undefined = undefined,
+  R extends ZodType | undefined = undefined,
+  Rs extends Record<number, ResponseConfig> | undefined = undefined,
+  H extends ZodType | undefined = undefined,
+  C extends ZodType | undefined = undefined,
+  Context extends RequestContext = RequestContext,
+  Upload extends UploadConfig | undefined = undefined,
+> = RouteConfigBase<S, B, P, Q, R, Rs, H, C, Context, Upload> & (
+  | FlatRouteRequestConfig<B, P, Q, H, C, Upload>
+  | GroupedRouteRequestConfig<B, P, Q, H, C, Upload>
+);
 
 /**
  * Options for creating a scoped router
@@ -355,7 +423,9 @@ export type RouteConfigWithoutMethod<
   C extends ZodType | undefined = undefined,
   Context extends RequestContext = RequestContext,
   Upload extends UploadConfig | undefined = undefined,
-> = Omit<RouteConfig<S, B, P, Q, R, Rs, H, C, Context, Upload>, 'method' | 'path'>;
+> = OmitRouteConfig<RouteConfig<S, B, P, Q, R, Rs, H, C, Context, Upload>, 'method' | 'path'>;
+
+type OmitRouteConfig<T, Keys extends PropertyKey> = T extends unknown ? Omit<T, Keys> : never;
 
 /**
  * Convenience route config for root API methods.
@@ -389,7 +459,7 @@ export type ScopedRouterConvenienceConfig<
   C extends ZodType | undefined = undefined,
   Context extends RequestContext = RequestContext,
   Upload extends UploadConfig | undefined = undefined,
-> = Omit<RouteConfigWithoutMethod<S, B, P, Q, R, Rs, H, C, Context, Upload>, 'path' | 'tags' | 'security'> & {
+> = OmitRouteConfig<RouteConfigWithoutMethod<S, B, P, Q, R, Rs, H, C, Context, Upload>, 'path' | 'tags' | 'security'> & {
   version?: ApiVersion | false;
   security?: RouteSecurity<S>;
 };
