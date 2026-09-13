@@ -63,6 +63,7 @@ export interface ApiDocsOptions {
    * Swagger UI configuration.
    */
   swagger?: {
+    /** Show Swagger UI's OpenAPI JSON URL field. */
     explorer?: boolean;
     customCss?: string;
     customSiteTitle?: string;

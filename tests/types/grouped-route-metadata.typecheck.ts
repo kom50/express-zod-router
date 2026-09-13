@@ -1,6 +1,7 @@
 import { createApiRouter, z } from '../../src';
 
 const api = createApiRouter();
+const users = api.createRouter({ path: '/users', tags: ['Users'] });
 
 api.get('/users/:id', {
   meta: {
@@ -12,6 +13,13 @@ api.get('/users/:id', {
     externalDocs: { url: 'https://example.com/users' },
   },
   params: z.object({ id: z.string() }),
+  response: z.object({ id: z.string() }),
+  handler: (req) => ({ id: req.params.id }),
+});
+
+users.get('/:id', {
+  meta: { operationId: 'getScopedUser', summary: 'Get scoped user' },
+  request: { params: z.object({ id: z.string() }) },
   response: z.object({ id: z.string() }),
   handler: (req) => ({ id: req.params.id }),
 });

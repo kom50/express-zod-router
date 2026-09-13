@@ -77,6 +77,7 @@ describe('docs: openapi generation', () => {
     api.docs({
       path: '/docs',
       jsonPath: '/spec.json',
+      swagger: { explorer: true },
       info: {
         title: 'Docs Test',
         version: '2.0.0',
@@ -87,11 +88,14 @@ describe('docs: openapi generation', () => {
 
     const jsonResp = await request(app).get('/spec.json');
     const uiResp = await request(app).get('/docs/');
+    const uiInitResp = await request(app).get('/docs/swagger-ui-init.js');
 
     expect(jsonResp.status).toBe(200);
     expect(jsonResp.body.paths['/api/ready']).toBeDefined();
     expect(uiResp.status).toBe(200);
     expect(uiResp.text).toContain('swagger');
+    expect(uiInitResp.status).toBe(200);
+    expect(uiInitResp.text).toContain('/spec.json');
   });
 
   it('uses ApiError as the reusable OpenAPI error schema name', async () => {

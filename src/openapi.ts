@@ -313,7 +313,8 @@ export function mountDocs(app: Express, options: ApiDocsOptions, finalDocument: 
   app.use(
     path,
     swaggerUi.serve,
-    swaggerUi.setup(finalDocument, {
+    swaggerUi.setup(null, {
+      swaggerUrl: jsonPath,
       explorer: swagger.explorer,
       customCss: swagger.customCss,
       customSiteTitle: swagger.customSiteTitle,

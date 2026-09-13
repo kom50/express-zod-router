@@ -109,6 +109,22 @@ api.docs({
 | `openapi`  | `Record<string, unknown>` | Additional OpenAPI configuration.                   |
 | `swagger`  | `object`                  | Swagger UI configuration.                           |
 
+### Show the JSON URL in Swagger UI
+
+Set `jsonPath` and enable `explorer` to show Swagger UI's source field. It loads the same JSON endpoint that clients and code generators can use.
+
+```ts
+api.docs({
+  path: '/docs',
+  jsonPath: '/openapi.json',
+  swagger: {
+    explorer: true,
+  },
+});
+```
+
+Open `/docs` to view Swagger UI and `/openapi.json` to open the JSON document directly.
+
 ## API information
 
 Configure the OpenAPI document information with `info`.

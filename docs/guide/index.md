@@ -558,52 +558,27 @@ See the [Schema API](/api/schema) and [OpenAPI API](/api/openapi) for more infor
 
 ## Project Structure
 
-A typical application can be organized like this:
-
-```text
-src/
-├── app.ts
-├── server.ts
-│
-├── schemas/
-│   ├── user.schema.ts
-│   ├── auth.schema.ts
-│   └── pagination.schema.ts
-│
-├── routes/
-│   ├── users.routes.ts
-│   ├── auth.routes.ts
-│   └── index.ts
-│
-├── middleware/
-│   ├── auth.middleware.ts
-│   └── logger.middleware.ts
-│
-└── services/
-    ├── user.service.ts
-    └── auth.service.ts
-```
-
-The package does not require controller or service classes.
-
-You can organize your application using normal functions and modules.
+Use the [recommended project structure](/guide/project-structure) when your API has more than a few routes. It separates schemas, routes, middleware, and services without requiring controller classes.
 
 ## Examples
 
-The repository contains complete examples demonstrating different package features.
+The repository contains runnable examples for each main feature. Run commands from the `examples/` directory after `npm install`.
 
-| Example        | Description                       |
-| -------------- | --------------------------------- |
-| **Basic**      | Minimal Express API               |
-| **CRUD**       | Complete CRUD API                 |
-| **Middleware** | Middleware usage                  |
-| **Auth**       | Authentication workflow           |
-| **OpenAPI**    | OpenAPI and Swagger documentation |
-| **Versioning** | API versioning                    |
-| **Upload**     | File upload workflow              |
-| **Complete**   | Combined package features         |
-
-See the [Examples](https://github.com/kom50/express-zod-router/tree/main/examples).
+| Example                                                                                               | Use case                                                                      | Run                                 |
+| ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | ----------------------------------- |
+| [Basic](https://github.com/kom50/express-zod-router/tree/main/examples/basic)                         | A small API with typed path and query parameters.                             | `npm run example:basic`             |
+| [CRUD](https://github.com/kom50/express-zod-router/tree/main/examples/crud)                           | User CRUD routes, scoped routers, and multiple responses.                     | `npm run example:crud`              |
+| [Middleware](https://github.com/kom50/express-zod-router/tree/main/examples/middleware)               | Global, asynchronous, and route middleware.                                   | `npm run example:middleware`        |
+| [Auth](https://github.com/kom50/express-zod-router/tree/main/examples/auth)                           | Bearer and API key authentication with security metadata.                     | `npm run example:auth`              |
+| [Errors](https://github.com/kom50/express-zod-router/tree/main/examples/errors)                       | Custom API error bodies, serialization, and safe fallbacks.                   | `npm run example:errors`            |
+| [OpenAPI](https://github.com/kom50/express-zod-router/tree/main/examples/openapi)                     | Swagger UI, OpenAPI metadata, and response documentation.                     | `npm run example:openapi`           |
+| [Versioning](https://github.com/kom50/express-zod-router/tree/main/examples/versioning)               | Versioned routes and version-specific OpenAPI tags.                           | `npm run example:versioning`        |
+| [Upload](https://github.com/kom50/express-zod-router/tree/main/examples/upload)                       | Multipart file uploads with validation rules.                                 | `npm run example:upload`            |
+| [Headers and Cookies](https://github.com/kom50/express-zod-router/tree/main/examples/headers-cookies) | Typed request headers and cookies.                                            | `npm run example:headers-cookies`   |
+| [Tooling](https://github.com/kom50/express-zod-router/tree/main/examples/tooling)                     | Export OpenAPI JSON and inspect routes without a server.                      | `npm run example:tooling`           |
+| [Project Structure](https://github.com/kom50/express-zod-router/tree/main/examples/project-structure) | Recommended mid-sized layout using routes, schemas, middleware, and services. | `npm run example:project-structure` |
+| [Todo Users](https://github.com/kom50/express-zod-router/tree/main/examples/todo-users)               | A layered application with authentication, users, and todos.                  | `npm run example:todo-users`        |
+| [Complete](https://github.com/kom50/express-zod-router/tree/main/examples/complete)                   | A single API that combines the main package features.                         | `npm run example:complete`          |
 
 ## API Reference
 
