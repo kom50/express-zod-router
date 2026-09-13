@@ -209,6 +209,9 @@ export function createApiRouter<Context extends RequestContext = RequestContext,
       const routeMiddleware = config.middleware ?? [];
       const routeSecurity = config.security ?? routerSecurity;
       const routeVersion = config.version ?? routerVersion;
+      const routeMeta = config.meta
+        ? { ...config.meta, tags: [...new Set([...tags, ...(config.meta.tags ?? [])])] }
+        : undefined;
 
       return route({
         ...config,
@@ -217,8 +220,8 @@ export function createApiRouter<Context extends RequestContext = RequestContext,
         security: routeSecurity,
         version: routeVersion,
         path: routePath,
-        tags,
-      });
+        ...(routeMeta ? { meta: routeMeta } : { tags }),
+      } as any);
     }) as ScopedRouterImpl;
 
     routerFunction.use = function (middleware: Middleware<Context>) {
@@ -241,6 +244,9 @@ export function createApiRouter<Context extends RequestContext = RequestContext,
         const routeMiddleware = config.middleware ?? [];
         const routeSecurity = config.security ?? routerSecurity;
         const routeVersion = config.version ?? routerVersion;
+        const routeMeta = config.meta
+          ? { ...config.meta, tags: [...new Set([...tags, ...(config.meta.tags ?? [])])] }
+          : undefined;
 
         return _registerRoute(method, routePath, {
           ...config,
@@ -248,8 +254,8 @@ export function createApiRouter<Context extends RequestContext = RequestContext,
           middleware: [...routerMiddleware, ...routeMiddleware],
           security: routeSecurity,
           version: routeVersion,
-          tags,
-        });
+          ...(routeMeta ? { meta: routeMeta } : { tags }),
+        } as any);
       };
     }
 

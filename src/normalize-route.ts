@@ -115,10 +115,21 @@ function assertNoDuplicateRequestDefinitions(config: NormalizeRouteOptions['conf
   }
 }
 
+function assertNoDuplicateMetadataDefinitions(config: NormalizeRouteOptions['config']): void {
+  if (!config.meta) return;
+
+  for (const field of ['operationId', 'summary', 'description', 'tags', 'deprecated'] as const) {
+    if (config[field] !== undefined && config.meta[field] !== undefined) {
+      throw new Error(`Cannot define both '${field}' and 'meta.${field}' for the same route`);
+    }
+  }
+}
+
 /** Converts the ergonomic public configuration into the internal route contract. */
 export function normalizeRoute<S extends SecuritySchemes = SecuritySchemes>(options: NormalizeRouteOptions<S>): NormalizedRoute {
   const { method, path, config, prefix, version: versionConfig, operationIdStrategy = 'rest' } = options;
   assertNoDuplicateRequestDefinitions(config);
+  assertNoDuplicateMetadataDefinitions(config);
   const resolvedVersion = resolveVersion(config.version, versionConfig);
   const basePath = resolvedVersion ? joinPaths(normalizePrefix(prefix), `/${resolvedVersion}`) : normalizePrefix(prefix);
   const normalizedPath = joinPaths(basePath, path);
@@ -129,6 +140,13 @@ export function normalizeRoute<S extends SecuritySchemes = SecuritySchemes>(opti
   const headers = request?.headers ?? config.headers;
   const cookies = request?.cookies ?? config.cookies;
   const upload = request?.upload ?? config.upload;
+  const metadata = config.meta;
+  const configuredTags = metadata?.tags ?? config.tags;
+  const tags = resolvedVersion && versionConfig?.autoTag !== false && (!configuredTags || configuredTags.length === 0) ? [resolvedVersion] : configuredTags;
+  const summary = metadata?.summary ?? config.summary;
+  const description = metadata?.description ?? config.description;
+  const deprecated = metadata?.deprecated ?? config.deprecated;
+  const openapi = metadata?.externalDocs ? { ...config.openapi, externalDocs: metadata.externalDocs } : config.openapi;
   const normalizedResponse = normalizeResponses(
     config.response as ZodType | RouteResponseConfig<ZodType> | undefined,
     config.responseExample,
@@ -136,7 +154,6 @@ export function normalizeRoute<S extends SecuritySchemes = SecuritySchemes>(opti
     config.status ?? 200,
     config.responseDescription ?? 'Success',
   );
-  const tags = resolvedVersion && versionConfig?.autoTag !== false && (!config.tags || config.tags.length === 0) ? [resolvedVersion] : config.tags;
   const security = normalizeSecurity(config.security ?? options.security);
 
   return {
@@ -153,12 +170,12 @@ export function normalizeRoute<S extends SecuritySchemes = SecuritySchemes>(opti
     response: normalizedResponse,
     middleware: [...(config.middleware ?? [])] as RequestHandler[],
     metadata: {
-      operationId: generateOperationId(method, path, config.handler as Function, config.operationId, operationIdStrategy),
+      operationId: generateOperationId(method, path, config.handler as Function, metadata?.operationId ?? config.operationId, operationIdStrategy),
       ...(tags && { tags }),
-      ...(config.summary && { summary: config.summary }),
-      ...(config.description && { description: config.description }),
-      ...(config.deprecated !== undefined && { deprecated: config.deprecated }),
-      ...(config.openapi && { openapi: config.openapi }),
+      ...(summary && { summary }),
+      ...(description && { description }),
+      ...(deprecated !== undefined && { deprecated }),
+      ...(openapi && { openapi }),
     },
     ...(security && { security }),
     ...(resolvedVersion && { version: { value: resolvedVersion } }),

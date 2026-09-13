@@ -177,7 +177,10 @@ const usersV2 = api.createRouter({
 });
 
 usersV2.get('/:id', {
-  operationId: 'getUserV2',
+  meta: {
+    operationId: 'getUserV2',
+    summary: 'Get a v2 user',
+  },
   params: z.object({ id: z.string().uuid() }),
   response: User.extend({ apiVersion: z.literal('v2') }),
   handler: (req) => {

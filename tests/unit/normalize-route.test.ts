@@ -106,6 +106,33 @@ describe('normalizeRoute', () => {
     expect(route.request).toEqual({ body: { schema: body, example: { name: 'Ada' } }, params, query, headers, cookies, upload });
   });
 
+  it('normalizes grouped metadata into the canonical metadata contract', () => {
+    const route = normalizeRoute({
+      method: 'get',
+      path: '/users/:id',
+      config: {
+        meta: {
+          operationId: 'getUser',
+          summary: 'Get user',
+          description: 'Fetch one user by ID.',
+          tags: ['Users'],
+          deprecated: true,
+          externalDocs: { url: 'https://example.com/users' },
+        },
+        handler: () => ({}),
+      },
+    });
+
+    expect(route.metadata).toEqual({
+      operationId: 'getUser',
+      summary: 'Get user',
+      description: 'Fetch one user by ID.',
+      tags: ['Users'],
+      deprecated: true,
+      openapi: { externalDocs: { url: 'https://example.com/users' } },
+    });
+  });
+
   it('rejects unsupported versions during normalization', () => {
     expect(() =>
       normalizeRoute({
