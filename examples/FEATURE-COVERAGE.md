@@ -2,6 +2,8 @@
 
 The examples are intentionally progressive. `complete` combines the major features demonstrated by the smaller examples.
 
+`tooling` shows how to export your API as JSON and list its routes without starting a server.
+
 | Feature | Basic | CRUD | Middleware | Auth | OpenAPI | Versioning | Upload | Complete |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
 | Zod request validation | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |

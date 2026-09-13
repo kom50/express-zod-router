@@ -2,6 +2,43 @@
 
 `express-zod-router` generates OpenAPI documentation from route definitions, Zod schemas, and route metadata.
 
+## Export your API and list routes
+
+Use these methods to share your API with a frontend team, save its documentation during a build, or check which routes are registered. You do not need to start a server.
+
+After registering your routes, call:
+
+```ts
+api.docs({ info: { title: 'Users API', version: '1.0.0' } });
+
+const document = api.openapi.generate(); // OpenAPI document as an object
+const json = api.openapi.toJSON();       // The same document as formatted JSON
+const routes = api.inspect();            // Registered routes and their details
+```
+
+`generate()` uses the same settings as Swagger, including schemas, tags, versions, and security. `toJSON()` makes it easy to save that document or pass it to a client generator. `inspect()` lists each route's method, full path, operation ID, and any tags, version, or security settings. It does not include handler code or schemas.
+
+To show only the fields you need, pass `fields`. TypeScript checks the field names and includes only those fields in the result type. Calling `inspect()` without options returns all available metadata. Missing optional fields are omitted; `fields: []` returns an empty object for each route.
+
+```ts
+console.table(api.inspect({ fields: ['method', 'path', 'operationId'] }));
+```
+
+To save a file from a build script, import your configured router and write its JSON:
+
+```ts
+import { writeFile } from 'node:fs/promises';
+import { api } from '../src/api';
+
+writeFile('./openapi.json', api.openapi.toJSON()).catch(console.error);
+```
+
+Keep server startup separate from the module you import. These methods do not run your handlers or start Express. Calling `api.docs()` sets documentation options; it only adds documentation endpoints when you later call `api.mount(app)`.
+
+Each call reads the current routes and returns a separate copy. Changing that copy does not change your API. Register all routes before mounting, since the Swagger document is saved at mount time. Exporting a document does not fully validate it; YAML export and document validation are not included yet.
+
+See the [working example](https://github.com/kom50/express-zod-router/tree/main/examples/tooling). TypeScript users can import `OpenApiDocument`, `OpenApiTooling`, and `RouteInspection` for the results.
+
 ## Quick example
 
 ```ts

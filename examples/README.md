@@ -67,7 +67,17 @@ npm run example:headers-cookies
 npm run example:complete
 ```
 
-## Type-check everything
+## Export your API without a server
+
+Build the root package with `npm run build`, then run from `examples/`:
+
+```bash
+npm run --silent example:tooling > openapi.json
+```
+
+This saves your API document to `openapi.json` and prints the route list in your terminal. No server is started. Share the file with your team or use it with a client generator. See [exporting your API](../docs/api/openapi.md#export-your-api-and-list-routes) for details.
+
+## Type-check examples
 
 ```bash
 npm run typecheck
