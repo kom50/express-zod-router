@@ -30,6 +30,15 @@ export default defineConfig({
       provider: 'local',
     },
     sidebar: {
+      '/guide/': [
+        {
+          text: 'Guide',
+          items: [
+            { text: 'Get Started', link: '/guide/' },
+            { text: 'Project Structure', link: '/guide/project-structure' },
+          ],
+        },
+      ],
       '/api/': [
         {
           text: 'API Reference',

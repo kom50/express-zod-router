@@ -31,6 +31,12 @@ examples/
 │   └── index.ts
 ├── headers-cookies/
 │   └── index.ts
+├── project-structure/
+│   ├── app.ts
+│   ├── server.ts
+│   ├── routes/
+│   ├── schemas/
+│   └── services/
 └── complete/
     └── index.ts
 ```
@@ -64,6 +70,7 @@ npm run example:openapi
 npm run example:versioning
 npm run example:upload
 npm run example:headers-cookies
+npm run example:project-structure
 npm run example:complete
 ```
 
@@ -97,7 +104,10 @@ npm run typecheck
 | Complete | 3007 | http://localhost:3007 |
 | Headers and cookies | 3008 | http://localhost:3008/api/profile |
 | Error serialization | 3009 | http://localhost:3009/api/users/1 |
+| Project structure | 3010 | http://localhost:3010/api/users |
 
 The OpenAPI examples expose Swagger UI at `/api-docs` and the JSON document at `/api-docs.json` unless a custom docs path is configured.
 
 The errors example demonstrates custom error bodies, validation failures, duplicate emails, missing users, and safe serializer fallbacks. Build the root package with `npm run build` before running it. See [the error guide](../docs/api/errors.md#working-example-users-api) for curl commands and expected responses.
+
+The project-structure example demonstrates the recommended mid-sized layout: routes hold handlers, services hold application logic, and no controller folder is needed.
