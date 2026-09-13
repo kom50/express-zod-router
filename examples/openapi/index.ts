@@ -74,6 +74,8 @@ api.post('/products', {
 api.docs({
   path: '/docs',
   jsonPath: '/openapi.json',
+  redoc: true,
+  scalar: true,
   info: {
     title: 'OpenAPI Example',
     version: '1.0.0',
@@ -97,5 +99,7 @@ api.mount(app);
 app.listen(3004, () => {
   console.log('OpenAPI API: http://localhost:3004/api');
   console.log('Swagger UI:   http://localhost:3004/docs');
-  console.log('OpenAPI JSON:  http://localhost:3004/openapi.json');
+  console.log('Redoc:        http://localhost:3004/redoc');
+  console.log('Scalar:       http://localhost:3004/scalar');
+  console.log('OpenAPI JSON: http://localhost:3004/openapi.json');
 });

@@ -104,6 +104,8 @@ api.docs({
 | ---------- | ------------------------- | --------------------------------------------------- |
 | `path`     | `string`                  | URL path where Swagger UI is served.                |
 | `jsonPath` | `string`                  | URL path where the OpenAPI JSON document is served. |
+| `redoc`    | `boolean`                 | Serve Redoc at `/redoc`.                            |
+| `scalar`   | `boolean`                 | Serve Scalar at `/scalar`.                          |
 | `info`     | `ApiDocsInfo`             | OpenAPI API information.                            |
 | `servers`  | `ApiDocsServer[]`         | OpenAPI server definitions.                         |
 | `openapi`  | `Record<string, unknown>` | Additional OpenAPI configuration.                   |
@@ -124,6 +126,20 @@ api.docs({
 ```
 
 Open `/docs` to view Swagger UI and `/openapi.json` to open the JSON document directly.
+
+### Enable Redoc or Scalar
+
+Enable either documentation UI with one option. Both pages load the same OpenAPI JSON document.
+
+```ts
+api.docs({
+  jsonPath: '/openapi.json',
+  redoc: true,
+  scalar: true,
+});
+```
+
+Redoc is served at `/redoc` and Scalar is served at `/scalar`. The package uses pinned CDN scripts for these pages. For custom themes, CSP, offline assets, or another UI, see [Use Other Documentation UIs](/guide/documentation-uis).
 
 ## API information
 

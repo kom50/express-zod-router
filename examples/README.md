@@ -106,7 +106,7 @@ npm run typecheck
 | Error serialization | 3009 | http://localhost:3009/api/users/1 |
 | Project structure | 3010 | http://localhost:3010/api/users |
 
-The OpenAPI examples expose Swagger UI at `/api-docs` and the JSON document at `/api-docs.json` unless a custom docs path is configured.
+The OpenAPI example exposes Swagger UI at `/docs`, Redoc at `/redoc`, Scalar at `/scalar`, and the JSON document at `/openapi.json`.
 
 The errors example demonstrates custom error bodies, validation failures, duplicate emails, missing users, and safe serializer fallbacks. Build the root package with `npm run build` before running it. See [the error guide](../docs/api/errors.md#working-example-users-api) for curl commands and expected responses.
 

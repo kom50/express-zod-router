@@ -1,6 +1,8 @@
 import { createApiRouter, z, type OpenApiDocument, type RouteInspection, type OpenApiTooling } from '../../src';
 const api = createApiRouter<{ userId: string }>();
-const configured = api.docs({ info: { title: 'Typed' } });
+const configured = api.docs({ info: { title: 'Typed' }, redoc: true, scalar: true });
+// @ts-expect-error Redoc uses the package's fixed `/redoc` path.
+api.docs({ redoc: '/redoc' });
 configured.get('/user', { response: z.string(), handler: (req) => req.context.userId });
 const document: OpenApiDocument = api.openapi.generate();
 const json: string = api.openapi.toJSON();

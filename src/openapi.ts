@@ -285,6 +285,11 @@ export function registerNormalizedRoute(registry: OpenAPIRegistry, route: Normal
 
 export type OpenApiDocument = ReturnType<OpenApiGeneratorV3['generateDocument']>;
 
+const redocPath = '/redoc';
+const scalarPath = '/scalar';
+const redocScriptUrl = 'https://cdn.redoc.ly/redoc/v2.5.4/bundles/redoc.standalone.js';
+const scalarScriptUrl = 'https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.68.0';
+
 export function generateOpenApiDocument(options: ApiDocsOptions, registry: OpenAPIRegistry): OpenApiDocument {
   const { info = {}, servers = [{ url: '/' }], openapi = {} } = options;
 
@@ -304,14 +309,23 @@ export function generateOpenApiDocument(options: ApiDocsOptions, registry: OpenA
 }
 
 export function mountDocs(app: Express, options: ApiDocsOptions, finalDocument: OpenApiDocument): void {
-  const { path = '/api-docs', jsonPath = '/api-docs.json', swagger = {} } = options;
+  const swaggerPath = normalizeDocumentationPath(options.path ?? '/api-docs');
+  const jsonPath = normalizeDocumentationPath(options.jsonPath ?? '/api-docs.json');
+  const { redoc = false, scalar = false, swagger = {} } = options;
+
+  assertUniqueDocumentationPaths({
+    swagger: swaggerPath,
+    json: jsonPath,
+    ...(redoc && { redoc: redocPath }),
+    ...(scalar && { scalar: scalarPath }),
+  });
 
   app.get(jsonPath, (_req, res) => {
     res.json(finalDocument);
   });
 
   app.use(
-    path,
+    swaggerPath,
     swaggerUi.serve,
     swaggerUi.setup(null, {
       swaggerUrl: jsonPath,
@@ -322,6 +336,77 @@ export function mountDocs(app: Express, options: ApiDocsOptions, finalDocument: 
       swaggerOptions: swagger.options,
     }),
   );
+
+  if (redoc) mountRedoc(app, jsonPath, finalDocument.info.title);
+  if (scalar) mountScalar(app, jsonPath, finalDocument.info.title);
+}
+
+function normalizeDocumentationPath(path: string): string {
+  return path.length > 1 ? path.replace(/\/+$/, '') : path;
+}
+
+function assertUniqueDocumentationPaths(paths: Record<string, string>): void {
+  const seen = new Map<string, string>();
+
+  for (const [name, path] of Object.entries(paths)) {
+    const existing = seen.get(path);
+    if (existing) {
+      throw new Error(`Documentation paths must be unique: '${existing}' and '${name}' both use '${path}'`);
+    }
+
+    seen.set(path, name);
+  }
+}
+
+function mountRedoc(app: Express, jsonPath: string, title: string): void {
+  app.get(redocPath, (_req, res) => {
+    res.type('html').send(`<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${escapeHtml(title)}</title>
+  </head>
+  <body>
+    <redoc spec-url="${escapeHtml(jsonPath)}"></redoc>
+    <script src="${redocScriptUrl}"></script>
+  </body>
+</html>`);
+  });
+}
+
+function mountScalar(app: Express, jsonPath: string, title: string): void {
+  const configuration = JSON.stringify({ url: jsonPath }).replace(/</g, '\\u003c');
+
+  app.get(scalarPath, (_req, res) => {
+    res.type('html').send(`<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${escapeHtml(title)}</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script src="${scalarScriptUrl}"></script>
+    <script>Scalar.createApiReference('#app', ${configuration});</script>
+  </body>
+</html>`);
+  });
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (character) => {
+    const entities: Record<string, string> = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;',
+    };
+
+    return entities[character];
+  });
 }
 
 export const defaultValidationErrorResponse = {
