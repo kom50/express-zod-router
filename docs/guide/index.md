@@ -86,16 +86,11 @@ const api = createApiRouter({
 
 ```ts
 api.get('/health', {
+  response: z.object({ status: z.string() }),
   handler: () => ({
     status: 'ok',
   }),
 });
-```
-
-The route is now available at:
-
-```text
-GET /api/health
 ```
 
 ### 5. Add request validation
@@ -155,6 +150,8 @@ The handler response is validated against `UserSchema`.
 api.docs({
   path: '/docs',
   jsonPath: '/openapi.json',
+  redoc: true,
+  scalar: true,
 
   info: {
     title: 'Users API',
@@ -163,26 +160,37 @@ api.docs({
 });
 ```
 
-Your API documentation can then be exposed through:
+### 8. Run the application
 
-```text
-GET /docs
-GET /openapi.json
-```
-
-### 8. Mount the API
+Mount the API after registering its routes, then start Express:
 
 ```ts
 api.mount(app);
-```
 
-Finally, start Express:
-
-```ts
 app.listen(3000, () => {
   console.log('API running on http://localhost:3000');
 });
 ```
+
+Run this entry file with the command your project uses for TypeScript. For example, with `tsx`:
+
+```bash
+npx tsx src/server.ts
+```
+
+### 9. Open the API and documentation
+
+With the configuration above, open these URLs in your browser:
+
+| Page             | URL                                  |
+| ---------------- | ------------------------------------ |
+| API health check | `http://localhost:3000/api/health`   |
+| Swagger UI       | `http://localhost:3000/docs`         |
+| Redoc            | `http://localhost:3000/redoc`        |
+| Scalar           | `http://localhost:3000/scalar`       |
+| OpenAPI JSON     | `http://localhost:3000/openapi.json` |
+
+Swagger UI, Redoc, and Scalar all use the same OpenAPI document. See [Documentation UIs](/guide/documentation-uis) when you need custom routes, themes, or self-hosted assets.
 
 ## Complete Example
 
@@ -242,6 +250,8 @@ api.post('/users', {
 api.docs({
   path: '/docs',
   jsonPath: '/openapi.json',
+  redoc: true,
+  scalar: true,
 
   info: {
     title: 'Users API',
@@ -470,7 +480,7 @@ See the [OpenAPI API Reference](/api/openapi).
 | **Scoped routers**      | Group routes with shared configuration |
 | **API versioning**      | Build versioned APIs                   |
 | **OpenAPI**             | Generate API documentation             |
-| **Swagger UI**          | Browse and test your API               |
+| **Documentation UIs**   | Browse your OpenAPI document           |
 | **Security**            | Configure OpenAPI security schemes     |
 | **File uploads**        | Support multipart/form-data workflows  |
 | **Error handling**      | Standardized API and validation errors |

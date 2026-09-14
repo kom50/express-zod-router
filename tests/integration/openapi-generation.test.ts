@@ -98,6 +98,33 @@ describe('docs: openapi generation', () => {
     expect(uiInitResp.text).toContain('/spec.json');
   });
 
+  it('mounts optional Redoc and Scalar pages using the OpenAPI JSON path', async () => {
+    const app = express();
+    const api = createApiRouter();
+
+    api.get('/health', { response: z.object({ status: z.string() }), handler: () => ({ status: 'ok' }) });
+    api.docs({ jsonPath: '/openapi.json', redoc: true, scalar: true });
+    api.mount(app);
+
+    const [redoc, scalar] = await Promise.all([request(app).get('/redoc'), request(app).get('/scalar')]);
+
+    expect(redoc.status).toBe(200);
+    expect(redoc.text).toContain('<redoc spec-url="/openapi.json"></redoc>');
+    expect(redoc.text).toContain('https://cdn.redoc.ly/redoc/v2.5.4/bundles/redoc.standalone.js');
+    expect(scalar.status).toBe(200);
+    expect(scalar.text).toContain('https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.68.0');
+    expect(scalar.text).toContain('"url":"/openapi.json"');
+  });
+
+  it('rejects duplicate documentation paths', () => {
+    const app = express();
+    const api = createApiRouter();
+
+    api.docs({ path: '/redoc/', jsonPath: '/openapi.json', redoc: true, scalar: true });
+
+    expect(() => api.mount(app)).toThrow("Documentation paths must be unique: 'swagger' and 'redoc' both use '/redoc'");
+  });
+
   it('uses ApiError as the reusable OpenAPI error schema name', async () => {
     const app = express();
     const api = createApiRouter();

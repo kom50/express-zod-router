@@ -36,6 +36,7 @@ export default defineConfig({
           items: [
             { text: 'Get Started', link: '/guide/' },
             { text: 'Project Structure', link: '/guide/project-structure' },
+            { text: 'Documentation UIs', link: '/guide/documentation-uis' },
           ],
         },
       ],

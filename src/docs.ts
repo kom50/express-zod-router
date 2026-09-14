@@ -45,6 +45,16 @@ export interface ApiDocsOptions {
   jsonPath?: string;
 
   /**
+   * Serve Redoc at `/redoc`.
+   */
+  redoc?: boolean;
+
+  /**
+   * Serve Scalar API Reference at `/scalar`.
+   */
+  scalar?: boolean;
+
+  /**
    * OpenAPI information.
    */
   info?: ApiDocsInfo;
