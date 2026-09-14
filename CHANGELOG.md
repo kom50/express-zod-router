@@ -4,6 +4,12 @@ All notable changes to `express-zod-router` are documented here.
 
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.3.1] - 2026-09-14
+
+### Fixed
+
+- Restored Multer as a development dependency so multipart integration tests run after a clean install.
+
 ## [1.3.0] - 2026-09-14
 
 ### Added
