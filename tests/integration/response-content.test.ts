@@ -72,8 +72,7 @@ describe('response content types', () => {
     api.mount(app);
 
     const result = await request(app).get('/invalid-text');
-    expect(result.status).toBe(400);
-    expect(result.body.code).toBe('VALIDATION_ERROR');
-    expect(result.body.details.source).toBe('response');
+    expect(result.status).toBe(500);
+    expect(result.body).toEqual({ status: 500, code: 'RESPONSE_VALIDATION_ERROR', message: 'Internal server error' });
   });
 });

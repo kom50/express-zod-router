@@ -92,9 +92,22 @@ Validation errors can occur when validating:
 - Route parameters
 - Query parameters
 - Request headers and cookies
-- Response data (with `source: "response"`)
 
 See [Request Validation](./request-validation) for request validation details.
+
+## Response validation errors
+
+If a handler returns data that does not match its response schema, the server returns a safe HTTP 500 response:
+
+```json
+{
+  "status": 500,
+  "code": "RESPONSE_VALIDATION_ERROR",
+  "message": "Internal server error"
+}
+```
+
+The response does not include schema issues. The original Zod error is available in the router's `onError` hook for logging.
 
 ## Unexpected errors
 
@@ -199,7 +212,7 @@ serialize: (error) => {
     ? ValidationDetailsSchema.safeParse(error.details)
     : undefined;
 
-  const details = parsed?.success && parsed.data.source !== 'response'
+  const details = parsed?.success
     ? parsed.data.issues.map(issue => ({
         field: issue.path.join('.') || '$',
         message: issue.message,
@@ -283,7 +296,7 @@ The example deliberately throws inside its serializer for the second endpoint. T
 
 `errors.schema` supplies the reusable `ApiError` component and automatic 400 response schema. Declare application statuses such as 404 and 409 in each route's `responses`, using the same custom schema. The example documents 500 as a union of the custom schema and the exported `ErrorSchema` to cover customization failures.
 
-This API handles errors from registered routes. Malformed JSON rejected by `express.json()` and unmatched URLs remain under the application's Express error/404 handling. Response-schema validation failures retain the existing HTTP 400 behavior with `details.source: "response"`.
+This API handles errors from registered routes. Malformed JSON rejected by `express.json()` and unmatched URLs remain under the application's Express error/404 handling. Response-schema validation failures return a safe HTTP 500 response.
 
 ## `ErrorSchema`
 

@@ -1,6 +1,6 @@
 import type { NextFunction, Request, RequestHandler, Response } from 'express';
 import { z } from 'zod';
-import { ApiError, handleRouteError, toRequestValidationError, type ApiErrorHandlingOptions, type ValidationSource } from './errors';
+import { ApiError, handleRouteError, toValidationError, type ApiErrorHandlingOptions, type ValidationSource } from './errors';
 import { createResponseHelpers } from './response';
 import type { NormalizedRoute } from './route-contract';
 import type { UploadedFile, UploadConstraints, UploadConfig, UploadSize } from './types';
@@ -190,7 +190,7 @@ export function createRuntimeHandler(route: NormalizedRoute, onError?: RouteErro
       res.status(responseStatus).type(definition.contentType).send(text);
     } catch (error) {
       await onError?.(error);
-      await handleRouteError(toRequestValidationError(validationSource, error) ?? error, res, next, errorOptions);
+      await handleRouteError(toValidationError(validationSource, error) ?? error, res, next, errorOptions);
     }
   };
 }
