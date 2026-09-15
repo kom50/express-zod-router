@@ -29,7 +29,11 @@ describe('docs: security metadata and async middleware', () => {
     api.createRouter({ path: '/public-scope', security: [] }).get('/health', { handler });
     api.version('1').get('/private', { handler });
     api.get('/authenticated', {
-      middleware: [(_req, res) => { res.status(401).json({ message: 'Authentication required' }); }],
+      middleware: [
+        (_req, res) => {
+          res.status(401).json({ message: 'Authentication required' });
+        },
+      ],
       handler,
     });
     api.docs();
@@ -167,5 +171,70 @@ describe('docs: security metadata and async middleware', () => {
 
     expect(errorRes.status).toBe(500);
     expect(errorRes.body).toEqual({ status: 500, code: 'INTERNAL_SERVER_ERROR', message: 'Internal server error' });
+  });
+
+  it('does not continue when async middleware resolves without next()', async () => {
+    const app = express();
+    const api = createApiRouter();
+    let handlerCalled = false;
+    let endResponse!: () => void;
+    let markMiddlewareResolved!: () => void;
+    const middlewareResolved = new Promise<void>((resolve) => {
+      markMiddlewareResolved = resolve;
+    });
+
+    api.get('/protected', {
+      middleware: [
+        async (_req, res) => {
+          await Promise.resolve();
+          endResponse = () => res.status(204).end();
+          markMiddlewareResolved();
+        },
+      ],
+      response: z.object({ ok: z.boolean() }),
+      handler: () => {
+        handlerCalled = true;
+        return { ok: true };
+      },
+    });
+
+    api.mount(app);
+    const response = request(app).get('/protected').then((result) => result);
+
+    await middlewareResolved;
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    expect(handlerCalled).toBe(false);
+
+    endResponse();
+    expect((await response).status).toBe(204);
+  });
+
+  it('propagates next(error) without running the route handler', async () => {
+    const app = express();
+    const observed = new Error('access denied');
+    const errors: unknown[] = [];
+    const api = createApiRouter({
+      onError: ({ error }) => {
+        errors.push(error);
+      },
+    });
+    let handlerCalled = false;
+
+    api.get('/protected', {
+      middleware: [(_req, _res, next) => next(observed)],
+      response: z.object({ ok: z.boolean() }),
+      handler: () => {
+        handlerCalled = true;
+        return { ok: true };
+      },
+    });
+
+    api.mount(app);
+    const result = await request(app).get('/protected');
+
+    expect(result.status).toBe(500);
+    expect(errors).toEqual([observed]);
+    expect(handlerCalled).toBe(false);
   });
 });

@@ -32,15 +32,25 @@ export function chainMiddleware<Context extends RequestContext>(
       await new Promise<void>((resolve, reject) => {
         let settled = false;
 
+        const cleanup = () => {
+          res.off('finish', stop);
+          res.off('close', stop);
+        };
+
         const finish = (err?: unknown) => {
           if (settled) return;
           settled = true;
+          cleanup();
           if (err) {
             reject(err);
           } else {
             resolve();
           }
         };
+
+        const stop = () => finish();
+        res.once('finish', stop);
+        res.once('close', stop);
 
         try {
           const result = middleware(req as Parameters<typeof middleware>[0], res, (err?: unknown) => finish(err));
@@ -51,12 +61,11 @@ export function chainMiddleware<Context extends RequestContext>(
               .then(() => {
                 if (res.headersSent || res.writableEnded) {
                   finish();
-                  return;
                 }
-
-                finish();
               })
               .catch(finish);
+          } else if (res.headersSent || res.writableEnded) {
+            finish();
           }
         } catch (error) {
           finish(error);
