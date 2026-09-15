@@ -73,6 +73,20 @@ describe('openapi: operationId generation', () => {
 
     api.route({
       method: 'get',
+      path: '/users/:id/:postId',
+      response: z.object({ ok: z.boolean() }),
+      handler: async () => ({ ok: true }),
+    });
+
+    api.route({
+      method: 'get',
+      path: '/users/:userId/orders/:orderId',
+      response: z.object({ ok: z.boolean() }),
+      handler: async () => ({ ok: true }),
+    });
+
+    api.route({
+      method: 'get',
       path: '/users/:id/profile',
       response: z.object({ ok: z.boolean() }),
       handler: async () => ({ ok: true }),
@@ -91,15 +105,17 @@ describe('openapi: operationId generation', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.paths['/api/users'].get.operationId).toBe('listUsers');
-    expect(res.body.paths['/api/users/{id}'].get.operationId).toBe('getUser');
+    expect(res.body.paths['/api/users/{id}'].get.operationId).toBe('getUserById');
     expect(res.body.paths['/api/users'].post.operationId).toBe('createUser');
-    expect(res.body.paths['/api/users/{id}'].put.operationId).toBe('replaceUser');
-    expect(res.body.paths['/api/users/{id}'].patch.operationId).toBe('updateUser');
-    expect(res.body.paths['/api/users/{id}'].delete.operationId).toBe('deleteUser');
-    expect(res.body.paths['/api/users/{id}/posts'].get.operationId).toBe('listUserPosts');
-    expect(res.body.paths['/api/users/{id}/posts'].post.operationId).toBe('createUserPost');
-    expect(res.body.paths['/api/users/{id}/posts/{postId}'].get.operationId).toBe('getUserPost');
-    expect(res.body.paths['/api/users/{id}/profile'].get.operationId).toBe('getUserProfile');
+    expect(res.body.paths['/api/users/{id}'].put.operationId).toBe('replaceUserById');
+    expect(res.body.paths['/api/users/{id}'].patch.operationId).toBe('updateUserById');
+    expect(res.body.paths['/api/users/{id}'].delete.operationId).toBe('deleteUserById');
+    expect(res.body.paths['/api/users/{id}/posts'].get.operationId).toBe('listUserPostsById');
+    expect(res.body.paths['/api/users/{id}/posts'].post.operationId).toBe('createUserPostById');
+    expect(res.body.paths['/api/users/{id}/posts/{postId}'].get.operationId).toBe('getUserPostByIdAndPostId');
+    expect(res.body.paths['/api/users/{id}/{postId}'].get.operationId).toBe('getUserByIdAndPostId');
+    expect(res.body.paths['/api/users/{userId}/orders/{orderId}'].get.operationId).toBe('getUserOrderByUserIdAndOrderId');
+    expect(res.body.paths['/api/users/{id}/profile'].get.operationId).toBe('getUserProfileById');
   });
 
   it('allows manual operationId overrides and rejects duplicates', async () => {

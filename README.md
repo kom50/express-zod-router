@@ -490,14 +490,14 @@ The same convenience methods are also available on scoped routers returned by `c
 Examples:
 
 - `GET /users` → `listUsers`
-- `GET /users/:id` → `getUser`
+- `GET /users/:id` → `getUserById`
 - `POST /users` → `createUser`
-- `PUT /users/:id` → `replaceUser`
-- `PATCH /users/:id` → `updateUser`
-- `DELETE /users/:id` → `deleteUser`
-- `GET /users/:id/posts` → `listUserPosts`
-- `POST /users/:id/posts` → `createUserPost`
-- `GET /users/:id/posts/:postId` → `getUserPost`
+- `PUT /users/:id` → `replaceUserById`
+- `PATCH /users/:id` → `updateUserById`
+- `DELETE /users/:id` → `deleteUserById`
+- `GET /users/:id/posts` → `listUserPostsById`
+- `POST /users/:id/posts` → `createUserPostById`
+- `GET /users/:id/posts/:postId` → `getUserPostByIdAndPostId`
 
 You can override it manually:
 
