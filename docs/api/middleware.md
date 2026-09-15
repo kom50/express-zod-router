@@ -115,6 +115,8 @@ api.get('/admin', {
 });
 ```
 
+Async middleware follows Express rules. Call `next()` to continue to the next middleware or route handler. Finishing the async function without calling `next()` does not continue the route. A middleware can also send the response or throw an error.
+
 ## Scoped router middleware
 
 Apply middleware to a group of routes.
