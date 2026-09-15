@@ -26,6 +26,7 @@ export function generateOperationId(
 
 export function generateRestOperationId(method: Method, path: string): string {
   const segments = normalizePath(path);
+  const parameterNames = getParameterNames(segments);
 
   if (segments.length === 0) {
     return rootOperationId(method);
@@ -44,7 +45,7 @@ export function generateRestOperationId(method: Method, path: string): string {
   const staticSegments = segmentInfo.filter((segment) => !segment.isParam);
 
   if (staticSegments.length === 0) {
-    return rootOperationId(method);
+    return withParameterNames(rootOperationId(method), parameterNames);
   }
 
   const last = staticSegments[staticSegments.length - 1];
@@ -70,20 +71,24 @@ export function generateRestOperationId(method: Method, path: string): string {
 
   const target = resourceParts.join('');
 
-  switch (method) {
-    case 'get':
-      return isCollectionRead ? `list${target}` : `get${target}`;
-    case 'post':
-      return `create${target}`;
-    case 'put':
-      return `replace${target}`;
-    case 'patch':
-      return `update${target}`;
-    case 'delete':
-      return `delete${target}`;
-    default:
-      return `${method}${target}`;
-  }
+  const operation = (() => {
+    switch (method) {
+      case 'get':
+        return isCollectionRead ? `list${target}` : `get${target}`;
+      case 'post':
+        return `create${target}`;
+      case 'put':
+        return `replace${target}`;
+      case 'patch':
+        return `update${target}`;
+      case 'delete':
+        return `delete${target}`;
+      default:
+        return `${method}${target}`;
+    }
+  })();
+
+  return withParameterNames(operation, parameterNames);
 }
 
 function normalizePath(path: string): string[] {
@@ -94,7 +99,35 @@ function normalizePath(path: string): string[] {
 }
 
 function isParameter(segment: string): boolean {
-  return segment.startsWith(':') || (segment.startsWith('{') && segment.endsWith('}'));
+  return segment.startsWith(':') || segment.startsWith('*') || (segment.startsWith('{') && segment.endsWith('}'));
+}
+
+function getParameterNames(segments: string[]): string[] {
+  return segments.map(parameterName).filter((name): name is string => Boolean(name));
+}
+
+function parameterName(segment: string): string | undefined {
+  if (segment.startsWith(':')) {
+    return segment.slice(1).replace(/[?+*]$/, '') || undefined;
+  }
+
+  if (segment.startsWith('*')) {
+    return segment.slice(1) || undefined;
+  }
+
+  if (segment.startsWith('{') && segment.endsWith('}')) {
+    return segment.slice(1, -1).replace(/^\*/, '') || undefined;
+  }
+
+  return undefined;
+}
+
+function withParameterNames(operationId: string, parameterNames: string[]): string {
+  if (parameterNames.length === 0) {
+    return operationId;
+  }
+
+  return `${operationId}By${parameterNames.map(capitalize).join('And')}`;
 }
 
 function singularize(value: string): string {
