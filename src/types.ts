@@ -1,5 +1,6 @@
 import type { Request, Response, RequestHandler, NextFunction } from 'express';
 import type { ZodType, z } from 'zod';
+import type { JoinRoutePath, PathParamsCheck } from './path-params';
 import type { ResponseHelpers } from './response';
 import type { ApiResponse } from './response';
 
@@ -505,15 +506,20 @@ export type RootApiMethodSignature<S extends AnySecuritySchemes = AnySecuritySch
   H extends ZodType | undefined = undefined,
   C extends ZodType | undefined = undefined,
   const Upload extends UploadConfig | undefined = undefined,
+  const Path extends string = string,
 >(
-  path: string,
-  config: RootApiConvenienceConfig<S, B, P, Q, R, Rs, H, C, Context, Upload>,
+  path: Path,
+  config: RootApiConvenienceConfig<S, B, P, Q, R, Rs, H, C, Context, Upload> & PathParamsCheck<Path, P>,
 ) => ApiRouter<S, Context>;
 
 /**
  * Reusable signature for scoped router HTTP method convenience functions.
  */
-export type ScopedRouterMethodSignature<S extends AnySecuritySchemes = AnySecuritySchemes, Context extends RequestContext = RequestContext> = <
+export type ScopedRouterMethodSignature<
+  S extends AnySecuritySchemes = AnySecuritySchemes,
+  Context extends RequestContext = RequestContext,
+  Prefix extends string = string,
+> = <
   B extends ZodType | undefined = undefined,
   P extends ZodType | undefined = undefined,
   Q extends ZodType | undefined = undefined,
@@ -522,12 +528,17 @@ export type ScopedRouterMethodSignature<S extends AnySecuritySchemes = AnySecuri
   H extends ZodType | undefined = undefined,
   C extends ZodType | undefined = undefined,
   const Upload extends UploadConfig | undefined = undefined,
+  const Path extends string = string,
 >(
-  path: string,
-  config: ScopedRouterConvenienceConfig<S, B, P, Q, R, Rs, H, C, Context, Upload>,
+  path: Path,
+  config: ScopedRouterConvenienceConfig<S, B, P, Q, R, Rs, H, C, Context, Upload> & PathParamsCheck<JoinRoutePath<Prefix, Path>, P>,
 ) => ApiRouter<S, Context>;
 
-export type ScopedRouter<S extends AnySecuritySchemes = AnySecuritySchemes, Context extends RequestContext = RequestContext> = {
+export type ScopedRouter<
+  S extends AnySecuritySchemes = AnySecuritySchemes,
+  Context extends RequestContext = RequestContext,
+  Prefix extends string = string,
+> = {
   <
     B extends ZodType | undefined = undefined,
     P extends ZodType | undefined = undefined,
@@ -537,17 +548,18 @@ export type ScopedRouter<S extends AnySecuritySchemes = AnySecuritySchemes, Cont
     H extends ZodType | undefined = undefined,
     C extends ZodType | undefined = undefined,
     const Upload extends UploadConfig | undefined = undefined,
+    const Path extends string = string,
   >(
-    config: RouteConfig<S, B, P, Q, R, Rs, H, C, Context, Upload>,
+    config: RouteConfig<S, B, P, Q, R, Rs, H, C, Context, Upload> & { path: Path } & PathParamsCheck<JoinRoutePath<Prefix, Path>, P>,
   ): ApiRouter<S, Context>;
 
-  get: ScopedRouterMethodSignature<S, Context>;
-  post: ScopedRouterMethodSignature<S, Context>;
-  put: ScopedRouterMethodSignature<S, Context>;
-  patch: ScopedRouterMethodSignature<S, Context>;
-  delete: ScopedRouterMethodSignature<S, Context>;
+  get: ScopedRouterMethodSignature<S, Context, Prefix>;
+  post: ScopedRouterMethodSignature<S, Context, Prefix>;
+  put: ScopedRouterMethodSignature<S, Context, Prefix>;
+  patch: ScopedRouterMethodSignature<S, Context, Prefix>;
+  delete: ScopedRouterMethodSignature<S, Context, Prefix>;
 
-  use: (middleware: Middleware<Context>) => ScopedRouter<S, Context>;
+  use: (middleware: Middleware<Context>) => ScopedRouter<S, Context, Prefix>;
 };
 
 export interface ApiRouter<S extends AnySecuritySchemes = AnySecuritySchemes, Context extends RequestContext = RequestContext> {
@@ -560,8 +572,9 @@ export interface ApiRouter<S extends AnySecuritySchemes = AnySecuritySchemes, Co
     H extends ZodType | undefined = undefined,
     C extends ZodType | undefined = undefined,
     const Upload extends UploadConfig | undefined = undefined,
+    const Path extends string = string,
   >(
-    config: RouteConfig<S, B, P, Q, R, Rs, H, C, Context, Upload>,
+    config: RouteConfig<S, B, P, Q, R, Rs, H, C, Context, Upload> & { path: Path } & PathParamsCheck<Path, P>,
   ) => ApiRouter<S, Context>;
 
   get: RootApiMethodSignature<S, Context>;
@@ -570,8 +583,9 @@ export interface ApiRouter<S extends AnySecuritySchemes = AnySecuritySchemes, Co
   patch: RootApiMethodSignature<S, Context>;
   delete: RootApiMethodSignature<S, Context>;
 
-  createRouter: ((prefix: string, tags?: string[]) => ScopedRouter<S, Context>) & ((options: CreateRouterOptionsFor<S, Context>) => ScopedRouter<S, Context>);
-  version: (versionString: ApiVersion, options?: Omit<CreateRouterOptionsFor<S, Context>, 'path' | 'version'>) => ScopedRouter<S, Context>;
+  createRouter: (<const Prefix extends string>(prefix: Prefix, tags?: string[]) => ScopedRouter<S, Context, Prefix>) &
+    (<const Prefix extends string>(options: CreateRouterOptionsFor<S, Context> & { path: Prefix }) => ScopedRouter<S, Context, Prefix>);
+  version: (versionString: ApiVersion, options?: Omit<CreateRouterOptionsFor<S, Context>, 'path' | 'version'>) => ScopedRouter<S, Context, ''>;
 
   routes: (modules: ApiRouteModule<S, Context>[]) => ApiRouter<S, Context>;
   mount: (app: import('express').Express) => import('express').Express;

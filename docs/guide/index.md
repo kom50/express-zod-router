@@ -332,6 +332,21 @@ api.get('/users/:id', {
 
 This keeps your runtime validation and TypeScript types aligned.
 
+### Path and params
+
+For a fixed route path, TypeScript checks that the `params` schema has the same parameter names:
+
+```ts
+api.get('/users/:id/:postId', {
+  params: z.object({ id: z.string(), postId: z.string() }),
+  handler: ({ params }) => params,
+});
+```
+
+Missing or extra names cause a TypeScript error. This works with flat `params`, `request.params`, and scoped routers. A scoped router checks its prefix too.
+
+Use normal parameter names such as `:id`, `:postId`, optional groups like `/users{/:id}`, and named splats like `/*path`. Dynamic paths, regular expressions, and other complex path patterns skip this check. Zod still validates the real request at runtime.
+
 ### Response Validation
 
 Define the expected response contract:
