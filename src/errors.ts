@@ -63,10 +63,19 @@ export class RequestValidationError extends Error {
   }
 }
 
-export function toRequestValidationError(source: ValidationSource, error: unknown): RequestValidationError | undefined {
+export class ResponseValidationError extends Error {
+  constructor(readonly issues: unknown[]) {
+    super('Response validation failed');
+    this.name = 'ResponseValidationError';
+    Object.setPrototypeOf(this, ResponseValidationError.prototype);
+  }
+}
+
+export function toValidationError(source: ValidationSource, error: unknown): RequestValidationError | ResponseValidationError | undefined {
   if (!error || typeof error !== 'object' || !('issues' in error)) return undefined;
   const issues = (error as { issues: unknown }).issues;
-  return Array.isArray(issues) ? new RequestValidationError(source, issues) : undefined;
+  if (!Array.isArray(issues)) return undefined;
+  return source === 'response' ? new ResponseValidationError(issues) : new RequestValidationError(source, issues);
 }
 
 function errorResponse(error: unknown, options: ApiErrorHandlingOptions): ErrorResponse {
@@ -76,6 +85,14 @@ function errorResponse(error: unknown, options: ApiErrorHandlingOptions): ErrorR
       code: 'VALIDATION_ERROR',
       message: options.responses?.[400] ?? 'Request validation failed',
       details: { source: error.source, issues: error.issues },
+    };
+  }
+
+  if (error instanceof ResponseValidationError) {
+    return {
+      status: 500,
+      code: 'RESPONSE_VALIDATION_ERROR',
+      message: options.responses?.[500] ?? 'Internal server error',
     };
   }
 

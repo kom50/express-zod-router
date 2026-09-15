@@ -166,9 +166,10 @@ describe('routes: middleware and validation', () => {
     });
   });
 
-  it('returns 400 when response validation fails', async () => {
+  it('returns a safe 500 response when response validation fails', async () => {
     const app = express();
-    const api = createApiRouter();
+    const observed: unknown[] = [];
+    const api = createApiRouter({ onError: ({ error }) => observed.push(error) });
 
     api.route({
       method: 'get',
@@ -181,8 +182,9 @@ describe('routes: middleware and validation', () => {
 
     const res = await request(app).get('/bad-response');
 
-    expect(res.status).toBe(400);
-    expect(res.body.code).toBe('VALIDATION_ERROR');
+    expect(res.status).toBe(500);
+    expect(res.body).toEqual({ status: 500, code: 'RESPONSE_VALIDATION_ERROR', message: 'Internal server error' });
+    expect(observed[0]).toMatchObject({ issues: expect.any(Array) });
   });
 
   it('coerces query params and types them through z.coerce', async () => {
