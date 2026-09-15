@@ -1,6 +1,4 @@
-import type { Method } from './types';
-
-export type OperationIdStrategy = 'rest' | 'handler' | 'explicit';
+import type { Method, OperationIdStrategy } from './types';
 
 export function generateOperationId(
   method: Method,

@@ -527,7 +527,7 @@ const api = createApiRouter({
 
 - `rest` (default): derives IDs from method + path (contract-first)
 - `handler`: uses handler function name when available; falls back to REST naming
-- `explicit`: requires every route to set `operationId`
+- `explicit`: requires every route to set `operationId`. TypeScript reports a missing ID before the app runs, and runtime validation remains as a fallback.
 
 ---
 

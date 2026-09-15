@@ -17,6 +17,7 @@ import type {
   CreateRouterOptionsFor,
   Middleware,
   Method,
+  OperationIdStrategy,
   ResponseConfig,
   RouteConfig,
   ScopedRouterConvenienceConfig,
@@ -30,7 +31,11 @@ import type {
   ApiLifecycleHooks,
 } from './types';
 
-export interface CreateApiRouterOptions<S extends SecuritySchemes = SecuritySchemes, Context extends RequestContext = RequestContext> {
+export interface CreateApiRouterOptions<
+  S extends SecuritySchemes = SecuritySchemes,
+  Context extends RequestContext = RequestContext,
+  Strategy extends OperationIdStrategy = OperationIdStrategy,
+> {
   prefix?: string;
   middleware?: Middleware<Context>[];
   multipart?: MultipartParser;
@@ -44,14 +49,32 @@ export interface CreateApiRouterOptions<S extends SecuritySchemes = SecuritySche
   errors?: ApiErrorHandlingOptions;
   openapi?: {
     operationId?: {
-      strategy?: 'rest' | 'handler' | 'explicit';
+      strategy?: Strategy;
     };
   };
 }
 
+type ExplicitOperationIdRouterOptions<S extends SecuritySchemes, Context extends RequestContext> = CreateApiRouterOptions<S, Context, 'explicit'> & {
+  openapi: {
+    operationId: {
+      strategy: 'explicit';
+    };
+  };
+};
+
 export function createApiRouter<Context extends RequestContext = RequestContext, S extends SecuritySchemes = SecuritySchemes>(
-  options: CreateApiRouterOptions<S, Context> = {},
-): ApiRouter<S, Context> {
+  options: ExplicitOperationIdRouterOptions<S, Context>,
+): ApiRouter<S, Context, 'explicit'>;
+export function createApiRouter<
+  Context extends RequestContext = RequestContext,
+  S extends SecuritySchemes = SecuritySchemes,
+  const Strategy extends OperationIdStrategy = 'rest',
+>(options?: CreateApiRouterOptions<S, Context, Strategy>): ApiRouter<S, Context, Strategy>;
+export function createApiRouter<
+  Context extends RequestContext = RequestContext,
+  S extends SecuritySchemes = SecuritySchemes,
+  Strategy extends OperationIdStrategy = 'rest',
+>(options: CreateApiRouterOptions<S, Context, Strategy> = {}): ApiRouter<S, Context, Strategy> {
   const registry = new OpenAPIRegistry();
   const errorSchema = registry.register('ApiError', options.errors?.schema ?? ErrorSchema);
   const registeredRoutes: RegisteredRoute[] = [];
@@ -357,7 +380,7 @@ export function createApiRouter<Context extends RequestContext = RequestContext,
     return app;
   }
 
-  const api: ApiRouter<S, Context> = {
+  const api: ApiRouter<S, Context, Strategy> = {
     route,
     get: (path, config) => _registerRoute('get', path, config),
     post: (path, config) => _registerRoute('post', path, config),
