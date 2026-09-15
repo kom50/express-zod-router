@@ -287,6 +287,8 @@ api.get('/users', {
 });
 ```
 
+With `strategy: 'explicit'`, every route must provide `operationId`. TypeScript reports missing IDs during development, and runtime validation remains as a fallback.
+
 ## Request schemas
 
 Zod schemas defined on routes are converted into OpenAPI request schemas.

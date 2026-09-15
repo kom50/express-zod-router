@@ -1,10 +1,11 @@
 import type { RequestHandler } from 'express';
 import type { ZodType } from 'zod';
-import { generateOperationId, type OperationIdStrategy } from './operation-id';
+import { generateOperationId } from './operation-id';
 import { joinPaths, normalizePrefix } from './helpers';
 import type {
   ApiVersion,
   Method,
+  OperationIdStrategy,
   OpenApiSecurityRequirement,
   ResponseConfig,
   RouteConfig,

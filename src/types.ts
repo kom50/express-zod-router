@@ -5,6 +5,7 @@ import type { ResponseHelpers } from './response';
 import type { ApiResponse } from './response';
 
 export type Method = 'get' | 'post' | 'put' | 'patch' | 'delete';
+export type OperationIdStrategy = 'rest' | 'handler' | 'explicit';
 
 /**
  * Middleware type compatible with Express middleware and the router context.
@@ -389,6 +390,10 @@ type GroupedRouteMetadataConfig = {
   deprecated?: never;
 };
 
+type OperationIdRequirement<Strategy extends OperationIdStrategy> = Strategy extends 'explicit'
+  ? { operationId?: never; meta: Omit<RouteMetaConfig, 'operationId'> & { operationId: string } } | { operationId: string; meta?: never }
+  : unknown;
+
 /**
  * Public route declaration. Request inputs can use either the existing flat
  * fields or `request`, but the same input cannot be declared in both forms.
@@ -497,28 +502,10 @@ export type ScopedRouterConvenienceConfig<
 /**
  * Reusable signature for root API HTTP method convenience functions.
  */
-export type RootApiMethodSignature<S extends AnySecuritySchemes = AnySecuritySchemes, Context extends RequestContext = RequestContext> = <
-  B extends ZodType | undefined = undefined,
-  P extends ZodType | undefined = undefined,
-  Q extends ZodType | undefined = undefined,
-  R extends ZodType | undefined = undefined,
-  Rs extends Record<number, ResponseConfig> | undefined = undefined,
-  H extends ZodType | undefined = undefined,
-  C extends ZodType | undefined = undefined,
-  const Upload extends UploadConfig | undefined = undefined,
-  const Path extends string = string,
->(
-  path: Path,
-  config: RootApiConvenienceConfig<S, B, P, Q, R, Rs, H, C, Context, Upload> & PathParamsCheck<Path, P>,
-) => ApiRouter<S, Context>;
-
-/**
- * Reusable signature for scoped router HTTP method convenience functions.
- */
-export type ScopedRouterMethodSignature<
+export type RootApiMethodSignature<
   S extends AnySecuritySchemes = AnySecuritySchemes,
   Context extends RequestContext = RequestContext,
-  Prefix extends string = string,
+  Strategy extends OperationIdStrategy = OperationIdStrategy,
 > = <
   B extends ZodType | undefined = undefined,
   P extends ZodType | undefined = undefined,
@@ -531,13 +518,37 @@ export type ScopedRouterMethodSignature<
   const Path extends string = string,
 >(
   path: Path,
-  config: ScopedRouterConvenienceConfig<S, B, P, Q, R, Rs, H, C, Context, Upload> & PathParamsCheck<JoinRoutePath<Prefix, Path>, P>,
-) => ApiRouter<S, Context>;
+  config: OperationIdRequirement<Strategy> & RootApiConvenienceConfig<S, B, P, Q, R, Rs, H, C, Context, Upload> & PathParamsCheck<Path, P>,
+) => ApiRouter<S, Context, Strategy>;
+
+/**
+ * Reusable signature for scoped router HTTP method convenience functions.
+ */
+export type ScopedRouterMethodSignature<
+  S extends AnySecuritySchemes = AnySecuritySchemes,
+  Context extends RequestContext = RequestContext,
+  Prefix extends string = string,
+  Strategy extends OperationIdStrategy = OperationIdStrategy,
+> = <
+  B extends ZodType | undefined = undefined,
+  P extends ZodType | undefined = undefined,
+  Q extends ZodType | undefined = undefined,
+  R extends ZodType | undefined = undefined,
+  Rs extends Record<number, ResponseConfig> | undefined = undefined,
+  H extends ZodType | undefined = undefined,
+  C extends ZodType | undefined = undefined,
+  const Upload extends UploadConfig | undefined = undefined,
+  const Path extends string = string,
+>(
+  path: Path,
+  config: OperationIdRequirement<Strategy> & ScopedRouterConvenienceConfig<S, B, P, Q, R, Rs, H, C, Context, Upload> & PathParamsCheck<JoinRoutePath<Prefix, Path>, P>,
+) => ApiRouter<S, Context, Strategy>;
 
 export type ScopedRouter<
   S extends AnySecuritySchemes = AnySecuritySchemes,
   Context extends RequestContext = RequestContext,
   Prefix extends string = string,
+  Strategy extends OperationIdStrategy = OperationIdStrategy,
 > = {
   <
     B extends ZodType | undefined = undefined,
@@ -550,19 +561,23 @@ export type ScopedRouter<
     const Upload extends UploadConfig | undefined = undefined,
     const Path extends string = string,
   >(
-    config: RouteConfig<S, B, P, Q, R, Rs, H, C, Context, Upload> & { path: Path } & PathParamsCheck<JoinRoutePath<Prefix, Path>, P>,
-  ): ApiRouter<S, Context>;
+    config: OperationIdRequirement<Strategy> & RouteConfig<S, B, P, Q, R, Rs, H, C, Context, Upload> & { path: Path } & PathParamsCheck<JoinRoutePath<Prefix, Path>, P>,
+  ): ApiRouter<S, Context, Strategy>;
 
-  get: ScopedRouterMethodSignature<S, Context, Prefix>;
-  post: ScopedRouterMethodSignature<S, Context, Prefix>;
-  put: ScopedRouterMethodSignature<S, Context, Prefix>;
-  patch: ScopedRouterMethodSignature<S, Context, Prefix>;
-  delete: ScopedRouterMethodSignature<S, Context, Prefix>;
+  get: ScopedRouterMethodSignature<S, Context, Prefix, Strategy>;
+  post: ScopedRouterMethodSignature<S, Context, Prefix, Strategy>;
+  put: ScopedRouterMethodSignature<S, Context, Prefix, Strategy>;
+  patch: ScopedRouterMethodSignature<S, Context, Prefix, Strategy>;
+  delete: ScopedRouterMethodSignature<S, Context, Prefix, Strategy>;
 
-  use: (middleware: Middleware<Context>) => ScopedRouter<S, Context, Prefix>;
+  use: (middleware: Middleware<Context>) => ScopedRouter<S, Context, Prefix, Strategy>;
 };
 
-export interface ApiRouter<S extends AnySecuritySchemes = AnySecuritySchemes, Context extends RequestContext = RequestContext> {
+export interface ApiRouter<
+  S extends AnySecuritySchemes = AnySecuritySchemes,
+  Context extends RequestContext = RequestContext,
+  Strategy extends OperationIdStrategy = OperationIdStrategy,
+> {
   route: <
     B extends ZodType | undefined = undefined,
     P extends ZodType | undefined = undefined,
@@ -574,23 +589,23 @@ export interface ApiRouter<S extends AnySecuritySchemes = AnySecuritySchemes, Co
     const Upload extends UploadConfig | undefined = undefined,
     const Path extends string = string,
   >(
-    config: RouteConfig<S, B, P, Q, R, Rs, H, C, Context, Upload> & { path: Path } & PathParamsCheck<Path, P>,
-  ) => ApiRouter<S, Context>;
+    config: OperationIdRequirement<Strategy> & RouteConfig<S, B, P, Q, R, Rs, H, C, Context, Upload> & { path: Path } & PathParamsCheck<Path, P>,
+  ) => ApiRouter<S, Context, Strategy>;
 
-  get: RootApiMethodSignature<S, Context>;
-  post: RootApiMethodSignature<S, Context>;
-  put: RootApiMethodSignature<S, Context>;
-  patch: RootApiMethodSignature<S, Context>;
-  delete: RootApiMethodSignature<S, Context>;
+  get: RootApiMethodSignature<S, Context, Strategy>;
+  post: RootApiMethodSignature<S, Context, Strategy>;
+  put: RootApiMethodSignature<S, Context, Strategy>;
+  patch: RootApiMethodSignature<S, Context, Strategy>;
+  delete: RootApiMethodSignature<S, Context, Strategy>;
 
-  createRouter: (<const Prefix extends string>(prefix: Prefix, tags?: string[]) => ScopedRouter<S, Context, Prefix>) &
-    (<const Prefix extends string>(options: CreateRouterOptionsFor<S, Context> & { path: Prefix }) => ScopedRouter<S, Context, Prefix>);
-  version: (versionString: ApiVersion, options?: Omit<CreateRouterOptionsFor<S, Context>, 'path' | 'version'>) => ScopedRouter<S, Context, ''>;
+  createRouter: (<const Prefix extends string>(prefix: Prefix, tags?: string[]) => ScopedRouter<S, Context, Prefix, Strategy>) &
+    (<const Prefix extends string>(options: CreateRouterOptionsFor<S, Context> & { path: Prefix }) => ScopedRouter<S, Context, Prefix, Strategy>);
+  version: (versionString: ApiVersion, options?: Omit<CreateRouterOptionsFor<S, Context>, 'path' | 'version'>) => ScopedRouter<S, Context, '', Strategy>;
 
-  routes: (modules: ApiRouteModule<S, Context>[]) => ApiRouter<S, Context>;
+  routes: (modules: ApiRouteModule<S, Context, Strategy>[]) => ApiRouter<S, Context, Strategy>;
   mount: (app: import('express').Express) => import('express').Express;
-  docs: (options?: import('./docs').ApiDocsOptions) => ApiRouter<S, Context>;
-  use: (middleware: Middleware<Context>) => ApiRouter<S, Context>;
+  docs: (options?: import('./docs').ApiDocsOptions) => ApiRouter<S, Context, Strategy>;
+  use: (middleware: Middleware<Context>) => ApiRouter<S, Context, Strategy>;
   openapi: import('./tooling').OpenApiTooling;
   inspect: <K extends keyof import('./tooling').RouteInspection = keyof import('./tooling').RouteInspection>(
     options?: import('./tooling').InspectOptions<K>,
@@ -598,6 +613,10 @@ export interface ApiRouter<S extends AnySecuritySchemes = AnySecuritySchemes, Co
   registry: import('@asteasolutions/zod-to-openapi').OpenAPIRegistry;
 }
 
-export type ApiRouteModule<S extends AnySecuritySchemes = AnySecuritySchemes, Context extends RequestContext = RequestContext> = (
-  api: ApiRouter<S, Context>,
+export type ApiRouteModule<
+  S extends AnySecuritySchemes = AnySecuritySchemes,
+  Context extends RequestContext = RequestContext,
+  Strategy extends OperationIdStrategy = OperationIdStrategy,
+> = (
+  api: ApiRouter<S, Context, Strategy>,
 ) => void;

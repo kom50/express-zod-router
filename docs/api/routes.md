@@ -344,6 +344,8 @@ api.get('/users/:id', {
 
 Operation IDs should be unique in the generated OpenAPI document.
 
+When the API router uses `strategy: 'explicit'`, TypeScript requires `operationId` on every route. You can set it directly or use `meta.operationId`.
+
 ## `summary`
 
 Provides a short OpenAPI summary.
