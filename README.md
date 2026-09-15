@@ -464,6 +464,23 @@ api.delete('/users/:id', { params: IdParams, response: z.object({ success: z.boo
 
 Full type inference is preserved — `req.body`, `req.params`, `req.query`, and the return type are all inferred from the schemas you pass, identical to `api.route()`.
 
+### Path and params
+
+For a fixed route path, TypeScript checks that the `params` schema has the same parameter names:
+
+```ts
+api.get('/users/:id/:postId', {
+  params: z.object({ id: z.string(), postId: z.string() }),
+  response: z.object({ id: z.string(), postId: z.string() }),
+  handler: ({ params }) => params,
+});
+```
+
+Missing or extra names cause a TypeScript error. This works with flat `params`, `request.params`, and scoped routers. A scoped router checks its prefix too.
+
+Use normal parameter names such as `:id`, `:postId`, optional groups like `/users{/:id}`, and named splats like `/*path`. Dynamic paths, regular expressions, and other complex path patterns skip this check. Zod still validates the real request at runtime.
+
+
 The same convenience methods are also available on scoped routers returned by `createRouter()` — see the `createRouter` section below.
 
 ### Automatic `operationId`
