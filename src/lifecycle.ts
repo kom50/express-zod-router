@@ -20,12 +20,15 @@ export function createLifecycleHandler<Context extends RequestContext>(
   errorOptions?: ApiErrorHandlingOptions,
 ): RequestHandler {
   return async (req: Request, res: Response, next) => {
-    Object.defineProperty(req, 'context', {
-      value: {},
-      writable: true,
-      enumerable: true,
-      configurable: true,
-    });
+    const contextRequest = req as Request & { context?: Context };
+    if (contextRequest.context === undefined) {
+      Object.defineProperty(contextRequest, 'context', {
+        value: {},
+        writable: true,
+        enumerable: true,
+        configurable: true,
+      });
+    }
 
     const startTime = new Date();
     let errorReported = false;
