@@ -43,7 +43,7 @@ const api = createApiRouter({
 | `securitySchemes` | `SecuritySchemes` | Registers OpenAPI security schemes         |
 | `version`         | `VersionConfig`   | Configures API versioning                  |
 | `onRequest`       | `function`        | Runs when a request begins                 |
-| `onResponse`      | `function`        | Runs after the response finishes           |
+| `onResponse`      | `function`        | Runs when the response finishes or closes  |
 | `onError`         | `function`        | Runs when route processing raises an error |
 | `openapi`         | `object`          | Configures OpenAPI operation ID generation |
 
@@ -65,7 +65,7 @@ const api = createApiRouter({
 });
 ```
 
-`onRequest` receives `{ req, startTime }`. `onResponse` receives `{ req, res, startTime, duration }` after Express finishes the response. `onError` receives `{ req, error, startTime, duration }` when route handling or composed middleware throws. `duration` is elapsed time in milliseconds.
+`onRequest` receives `{ req, startTime }`. `onResponse` receives `{ req, res, startTime, duration }` when the response finishes or its connection closes prematurely, and runs at most once per request. Check `res.writableFinished` to distinguish a completed response from a premature close. `onError` receives `{ req, error, startTime, duration }` when route handling or composed middleware throws. `duration` is elapsed time in milliseconds.
 
 Hook callbacks may be asynchronous. Errors thrown by a hook are ignored, so observability code cannot change the API response or error-handling behavior.
 

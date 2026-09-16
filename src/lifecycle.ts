@@ -38,9 +38,17 @@ export function createLifecycleHandler<Context extends RequestContext>(
       await invokeHook(() => hooks.onError?.({ error, req, startTime, duration: Date.now() - startTime.getTime() }));
     };
 
-    res.once('finish', () => {
+    let responseReported = false;
+    const reportResponse = () => {
+      if (responseReported) return;
+      responseReported = true;
+      res.off('finish', reportResponse);
+      res.off('close', reportResponse);
       void invokeHook(() => hooks.onResponse?.({ req, res, startTime, duration: Date.now() - startTime.getTime() }));
-    });
+    };
+
+    res.once('finish', reportResponse);
+    res.once('close', reportResponse);
 
     await invokeHook(() => hooks.onRequest?.({ req, startTime }));
     const handler = chainMiddleware(middleware, createRuntimeHandler(route, reportError, errorOptions), reportError, errorOptions);
