@@ -156,6 +156,7 @@ export function normalizeRoute<S extends SecuritySchemes = SecuritySchemes>(opti
     config.responseDescription ?? 'Success',
   );
   const security = normalizeSecurity(config.security ?? options.security);
+  const operationIdPath = resolvedVersion ? joinPaths(`/${resolvedVersion}`, path) : path;
 
   return {
     method,
@@ -171,7 +172,7 @@ export function normalizeRoute<S extends SecuritySchemes = SecuritySchemes>(opti
     response: normalizedResponse,
     middleware: [...(config.middleware ?? [])] as RequestHandler[],
     metadata: {
-      operationId: generateOperationId(method, path, config.handler as Function, metadata?.operationId ?? config.operationId, operationIdStrategy),
+      operationId: generateOperationId(method, operationIdPath, config.handler as Function, metadata?.operationId ?? config.operationId, operationIdStrategy),
       ...(tags && { tags }),
       ...(summary && { summary }),
       ...(description && { description }),

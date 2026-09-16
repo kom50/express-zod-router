@@ -289,6 +289,8 @@ api.get('/users', {
 
 With `strategy: 'explicit'`, every route must provide `operationId`. TypeScript reports missing IDs during development, and runtime validation remains as a fallback.
 
+The REST strategy includes the resolved version for versioned routes. For example, `GET /v1/users` generates `listV1Users`, while an unversioned `GET /users` remains `listUsers`. Explicit operation IDs are unchanged.
+
 ## Request schemas
 
 Zod schemas defined on routes are converted into OpenAPI request schemas.
