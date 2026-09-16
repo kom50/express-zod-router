@@ -155,6 +155,42 @@ describe('openapi: operationId generation', () => {
     expect(res.body.paths['/users/{id}'].get.operationId).toBe('fetchUserById');
   });
 
+  it('includes the resolved version in automatic operationIds', async () => {
+    const app = express();
+    const api = createApiRouter({
+      version: {
+        supportedVersions: ['v1', 'v2'],
+      },
+    });
+    const v1 = api.version('v1');
+    const v2 = api.version('v2');
+    const response = z.array(z.string());
+
+    v1.get('/users', { response, handler: () => [] });
+    v2.get('/users', { response, handler: () => [] });
+    api.get('/users', { version: false, response, handler: () => [] });
+    v1.get('/admins', {
+      operationId: 'fetchAdmins',
+      response,
+      handler: () => [],
+    });
+
+    api.docs();
+    api.mount(app);
+
+    const result = await request(app).get('/api-docs.json');
+    const operationIds = [
+      result.body.paths['/v1/users'].get.operationId,
+      result.body.paths['/v2/users'].get.operationId,
+      result.body.paths['/users'].get.operationId,
+      result.body.paths['/v1/admins'].get.operationId,
+    ];
+
+    expect(result.status).toBe(200);
+    expect(operationIds).toEqual(['listV1Users', 'listV2Users', 'listUsers', 'fetchAdmins']);
+    expect(new Set(operationIds).size).toBe(operationIds.length);
+  });
+
   it('supports handler strategy when configured', async () => {
     const app = express();
     const api = createApiRouter({
