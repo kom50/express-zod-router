@@ -35,6 +35,12 @@ export interface ApiErrorHandlingOptions {
   serialize?: (error: ErrorResponse) => unknown;
 }
 
+function assertErrorStatus(status: number): void {
+  if (!Number.isInteger(status) || status < 400 || status > 599) {
+    throw new TypeError('ApiError status must be a valid 4xx or 5xx HTTP status code');
+  }
+}
+
 export class ApiError extends Error {
   status: number;
   code: string;
@@ -43,6 +49,7 @@ export class ApiError extends Error {
   constructor(status: number, message: string, details?: unknown);
   constructor(optionsOrStatus: ApiErrorOptions | number, legacyMessage?: string, legacyDetails?: unknown) {
     const options = typeof optionsOrStatus === 'number' ? { status: optionsOrStatus, message: legacyMessage ?? '', details: legacyDetails } : optionsOrStatus;
+    assertErrorStatus(options.status);
     super(options.message);
     this.name = 'ApiError';
     this.status = options.status;
