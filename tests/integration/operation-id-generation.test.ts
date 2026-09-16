@@ -238,7 +238,6 @@ describe('openapi: operationId generation', () => {
 
     expect(() => {
       api.route({
-        operationId: 'fetchUsers',
         method: 'get',
         path: '/users',
         response: z.object({ ok: z.boolean() }),
