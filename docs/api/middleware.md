@@ -20,7 +20,7 @@ api.get('/profile', {
 
 ## Request context
 
-Declare a router-level context type to share request-scoped values between middleware and handlers. A fresh context object is created before global middleware for every request.
+Declare a router-level context type to share request-scoped values between middleware and handlers. Existing `req.context` from upstream Express middleware is preserved. Otherwise, a fresh context object is created before global middleware.
 
 ```ts
 interface AppContext {
