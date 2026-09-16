@@ -17,6 +17,7 @@ throw new ApiError({
 ## `ApiError`
 
 Create an HTTP error with a status code, machine-readable code, message, and optional JSON-compatible details.
+The status must be an integer from `400` through `599`; invalid values throw a `TypeError` when the `ApiError` is created.
 
 ```ts
 throw new ApiError({ status: 404, code: 'USER_NOT_FOUND', message: 'User not found' });
