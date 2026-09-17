@@ -4,6 +4,23 @@ All notable changes to `express-zod-router` are documented here.
 
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.4.0] - 2026-09-17
+
+### Added
+
+- Compile-time checks that fixed route paths and Zod parameter schemas declare matching names, including scoped prefixes, optional groups, and named splats.
+- Compile-time enforcement of route operation IDs when the router uses the `explicit` operation ID strategy.
+
+### Fixed
+
+- Included parameter names in generated REST operation IDs to avoid collisions between collection and parameterized routes.
+- Included resolved API versions in generated operation IDs so versioned routes remain unique.
+- Returned safe HTTP 500 responses for response-schema validation failures instead of exposing them as request validation errors.
+- Preserved Express control flow for asynchronous middleware, including response completion, `next(error)`, thrown errors, and middleware that intentionally does not call `next()`.
+- Preserved request context installed by upstream Express middleware while continuing to initialize context when absent.
+- Reported `onResponse` once for prematurely closed connections as well as normally finished responses.
+- Rejected non-integer and out-of-range `ApiError` statuses before they reach Express; valid statuses are limited to `400` through `599`.
+
 ## [1.3.1] - 2026-09-14
 
 ### Fixed
